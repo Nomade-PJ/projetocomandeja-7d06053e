@@ -12,13 +12,13 @@ export interface AuthContext {
 }
 
 export const signUp = async (email: string, password: string, fullName: string, role: string = 'restaurant_owner') => {
-  const redirectUrl = `${window.location.origin}/dashboard`;
+  console.log('Starting signup process for:', email);
+  console.log('User data:', { fullName, role });
   
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: redirectUrl,
       data: {
         full_name: fullName,
         role: role
@@ -26,6 +26,7 @@ export const signUp = async (email: string, password: string, fullName: string, 
     }
   });
   
+  console.log('Signup response:', { data, error });
   return { error };
 };
 

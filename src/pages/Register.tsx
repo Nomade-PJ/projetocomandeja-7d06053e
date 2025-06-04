@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -35,19 +36,33 @@ const Register = () => {
       toast.error("A senha deve ter pelo menos 6 caracteres");
       return;
     }
+
+    if (!formData.acceptTerms) {
+      toast.error("Você deve aceitar os termos de uso");
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log('Attempting to create account with:', {
+        email: formData.email,
+        name: formData.name,
+        role: 'restaurant_owner'
+      });
+
       const { error } = await signUp(formData.email, formData.password, formData.name, 'restaurant_owner');
       
       if (error) {
+        console.error('Signup error:', error);
         toast.error("Erro ao criar conta: " + error.message);
       } else {
-        toast.success("Conta criada com sucesso! Verifique seu email.");
+        console.log('Account created successfully');
+        toast.success("Conta criada com sucesso! Verifique seu email para confirmar.");
         navigate("/login");
       }
     } catch (error) {
+      console.error('Unexpected error:', error);
       toast.error("Erro inesperado ao criar conta");
     } finally {
       setIsLoading(false);
