@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Mail, Lock, User, Store } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -19,17 +20,38 @@ const Register = () => {
     acceptTerms: false
   });
   const [isLoading, setIsLoading] = useState(false);
+  const { signUp } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+    
+    if (formData.password.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+    
     setIsLoading(true);
     
-    // Simular registro - em produção conectar com Supabase
-    setTimeout(() => {
+    try {
+      const { error } = await signUp(formData.email, formData.password, formData.name, 'restaurant_owner');
+      
+      if (error) {
+        toast.error("Erro ao criar conta: " + error.message);
+      } else {
+        toast.success("Conta criada com sucesso! Verifique seu email.");
+        navigate("/login");
+      }
+    } catch (error) {
+      toast.error("Erro inesperado ao criar conta");
+    } finally {
       setIsLoading(false);
-      // Redirecionar para onboarding após registro
-      window.location.href = "/onboarding";
-    }, 2000);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,28 +1,39 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Mail, Lock } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simular login - em produção conectar com Supabase
-    setTimeout(() => {
+    try {
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        toast.error("Erro ao fazer login: " + error.message);
+      } else {
+        toast.success("Login realizado com sucesso!");
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      toast.error("Erro inesperado ao fazer login");
+    } finally {
       setIsLoading(false);
-      // Redirecionar para dashboard após login
-      window.location.href = "/dashboard";
-    }, 1500);
+    }
   };
 
   return (
