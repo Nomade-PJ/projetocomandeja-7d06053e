@@ -282,8 +282,8 @@ CREATE POLICY "Users can view own profile" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Users can insert own profile" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "System can insert profiles" ON public.profiles
+  FOR INSERT WITH CHECK (true);
 
 -- Políticas para restaurants
 CREATE POLICY "Restaurant owners can manage their restaurants" ON public.restaurants
@@ -384,14 +384,40 @@ CREATE INDEX idx_dashboard_statistics_restaurant_date ON public.dashboard_statis
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- Use INSERT ... ON CONFLICT DO UPDATE para lidar com possíveis conflitos de email
   INSERT INTO public.profiles (id, email, full_name, role)
   VALUES (
     NEW.id,
     NEW.email,
-    NEW.raw_user_meta_data->>'full_name',
-    COALESCE(NEW.raw_user_meta_data->>'role', 'customer')::user_role
-  );
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(
+      (CASE 
+        WHEN NEW.raw_user_meta_data->>'role' IS NOT NULL AND NEW.raw_user_meta_data->>'role' != '' 
+        THEN NEW.raw_user_meta_data->>'role'
+        ELSE 'customer'
+      END)::user_role,
+      'customer'::user_role
+    )
+  )
+  ON CONFLICT (email) DO UPDATE SET
+    id = NEW.id,
+    full_name = COALESCE(NEW.raw_user_meta_data->>'full_name', profiles.full_name),
+    role = COALESCE(
+      (CASE 
+        WHEN NEW.raw_user_meta_data->>'role' IS NOT NULL AND NEW.raw_user_meta_data->>'role' != '' 
+        THEN NEW.raw_user_meta_data->>'role'
+        ELSE profiles.role::text
+      END)::user_role,
+      profiles.role
+    ),
+    updated_at = now();
+  
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Log o erro mas não falhe a transação
+    RAISE WARNING 'Erro em handle_new_user: %', SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

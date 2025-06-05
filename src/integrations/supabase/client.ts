@@ -2,10 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://rqmbibkesypgqibfmoyr.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxbWJpYmtlc3lwZ3FpYmZtb3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNDkwNzksImV4cCI6MjA2NDYyNTA3OX0.7xyW9g5vEQDsTGt5rXJ70okzPB7InD9KTtjjNJoyuaI";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('As variáveis de ambiente do Supabase não estão configuradas');
+}
+
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
