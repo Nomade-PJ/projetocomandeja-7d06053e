@@ -710,3 +710,113 @@ DROP TRIGGER IF EXISTS update_dashboard_statistics_trigger ON public.orders;
 CREATE TRIGGER update_dashboard_statistics_trigger
   AFTER INSERT OR UPDATE ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.update_dashboard_statistics();
+
+-- ========================================
+-- POLÍTICAS DE SEGURANÇA (RLS) ADICIONAIS
+-- ========================================
+
+-- Políticas RLS alternativas (usando EXISTS em vez de IN)
+CREATE POLICY "Restaurant owners can view their own restaurant (alt)" ON public.restaurants
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE public.profiles.id = auth.uid() 
+    AND public.profiles.role = 'restaurant_owner'
+    AND public.restaurants.owner_id = public.profiles.id
+  )
+);
+
+CREATE POLICY "Restaurant owners can update their own restaurant (alt)" ON public.restaurants
+FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE public.profiles.id = auth.uid() 
+    AND public.profiles.role = 'restaurant_owner'
+    AND public.restaurants.owner_id = public.profiles.id
+  )
+);
+
+-- Políticas alternativas para categorias
+CREATE POLICY "Restaurant owners can manage their categories (alt)" ON public.categories
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.restaurants r
+    JOIN public.profiles p ON p.id = auth.uid() 
+    WHERE r.id = public.categories.restaurant_id 
+    AND r.owner_id = p.id
+    AND p.role = 'restaurant_owner'
+  )
+);
+
+-- Políticas alternativas para produtos
+CREATE POLICY "Restaurant owners can manage their products (alt)" ON public.products
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.restaurants r
+    JOIN public.profiles p ON p.id = auth.uid() 
+    WHERE r.id = public.products.restaurant_id 
+    AND r.owner_id = p.id
+    AND p.role = 'restaurant_owner'
+  )
+);
+
+-- Políticas alternativas para pedidos
+CREATE POLICY "Restaurant owners can manage their orders (alt)" ON public.orders
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.restaurants r
+    JOIN public.profiles p ON p.id = auth.uid() 
+    WHERE r.id = public.orders.restaurant_id 
+    AND r.owner_id = p.id
+    AND p.role = 'restaurant_owner'
+  )
+);
+
+-- Políticas alternativas para itens de pedidos
+CREATE POLICY "Restaurant owners can manage their order items (alt)" ON public.order_items
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.orders o
+    JOIN public.restaurants r ON r.id = o.restaurant_id
+    JOIN public.profiles p ON p.id = auth.uid() 
+    WHERE o.id = public.order_items.order_id 
+    AND r.owner_id = p.id
+    AND p.role = 'restaurant_owner'
+  )
+);
+
+-- Políticas alternativas para clientes
+CREATE POLICY "Restaurant owners can manage their customers (alt)" ON public.customers
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.restaurants r
+    JOIN public.profiles p ON p.id = auth.uid() 
+    WHERE r.id = public.customers.restaurant_id 
+    AND r.owner_id = p.id
+    AND p.role = 'restaurant_owner'
+  )
+);
+
+-- Políticas alternativas para avaliações
+CREATE POLICY "Restaurant owners can manage their reviews (alt)" ON public.reviews
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.restaurants r
+    JOIN public.profiles p ON p.id = auth.uid() 
+    WHERE r.id = public.reviews.restaurant_id 
+    AND r.owner_id = p.id
+    AND p.role = 'restaurant_owner'
+  )
+);
+
+-- Políticas alternativas para configurações do restaurante
+CREATE POLICY "Restaurant owners can manage their settings (alt)" ON public.restaurant_settings
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.restaurants r
+    JOIN public.profiles p ON p.id = auth.uid() 
+    WHERE r.id = public.restaurant_settings.restaurant_id 
+    AND r.owner_id = p.id
+    AND p.role = 'restaurant_owner'
+  )
+);
