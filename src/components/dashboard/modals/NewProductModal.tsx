@@ -1,12 +1,14 @@
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 
 interface NewProductModalProps {
   open: boolean;
@@ -17,40 +19,52 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [preparationTime, setPreparationTime] = useState("15");
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
-  const [imageUrl, setImageUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  
+  const { createProduct } = useProducts();
+  const { categories } = useCategories();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement product creation logic
-    console.log("Creating new product:", {
-      name,
-      description,
+    if (!name.trim() || !price) return;
+
+    setLoading(true);
+    
+    const result = await createProduct({
+      name: name.trim(),
+      description: description.trim() || undefined,
       price: parseFloat(price),
-      category,
-      preparationTime: parseInt(preparationTime),
-      isActive,
-      isFeatured,
-      imageUrl,
+      category_id: categoryId || undefined,
+      image_url: imageUrl.trim() || undefined,
+      preparation_time: parseInt(preparationTime) || 15,
+      is_active: isActive,
+      is_featured: isFeatured,
+      display_order: 0
     });
-    onOpenChange(false);
-    // Reset form
-    setName("");
-    setDescription("");
-    setPrice("");
-    setCategory("");
-    setPreparationTime("15");
-    setIsActive(true);
-    setIsFeatured(false);
-    setImageUrl("");
+
+    if (result) {
+      setName("");
+      setDescription("");
+      setPrice("");
+      setCategoryId("");
+      setImageUrl("");
+      setPreparationTime("15");
+      setIsActive(true);
+      setIsFeatured(false);
+      onOpenChange(false);
+    }
+    
+    setLoading(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Novo Produto</DialogTitle>
           <DialogDescription>
@@ -58,94 +72,117 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome do Produto</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Digite o nome do produto"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome do Produto</Label>
+              <Input
+                id="name"
+                placeholder="Ex: Hambúrguer Artesanal"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="price">Preço (R$)</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0,00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                required
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descreva o produto"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="price">Preço (R$)</Label>
-            <Input
-              id="price"
-              type="number"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="0,00"
-              required
-            />
-          </div>
+          
           <div className="space-y-2">
             <Label htmlFor="category">Categoria</Label>
-            <Select value={category} onValueChange={setCategory}>
+            <Select value={categoryId} onValueChange={setCategoryId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma categoria" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pratos-principais">Pratos Principais</SelectItem>
-                <SelectItem value="entradas">Entradas</SelectItem>
-                <SelectItem value="sobremesas">Sobremesas</SelectItem>
-                <SelectItem value="bebidas">Bebidas</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
+          
           <div className="space-y-2">
-            <Label htmlFor="preparationTime">Tempo de Preparo (min)</Label>
-            <Input
-              id="preparationTime"
-              type="number"
-              value={preparationTime}
-              onChange={(e) => setPreparationTime(e.target.value)}
-              placeholder="15"
+            <Label htmlFor="description">Descrição</Label>
+            <Textarea
+              id="description"
+              placeholder="Descrição do produto"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
             />
           </div>
+          
           <div className="space-y-2">
-            <Label htmlFor="imageUrl">URL da Imagem</Label>
+            <Label htmlFor="image">URL da Imagem</Label>
             <Input
-              id="imageUrl"
+              id="image"
+              type="url"
+              placeholder="https://exemplo.com/imagem.jpg"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://exemplo.com/imagem.jpg"
             />
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="prep-time">Tempo de Preparo (minutos)</Label>
+            <Input
+              id="prep-time"
+              type="number"
+              min="1"
+              value={preparationTime}
+              onChange={(e) => setPreparationTime(e.target.value)}
+            />
+          </div>
+          
           <div className="flex items-center justify-between">
-            <Label htmlFor="isActive">Produto Ativo</Label>
-            <Switch
-              id="isActive"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="active"
+                checked={isActive}
+                onCheckedChange={setIsActive}
+              />
+              <Label htmlFor="active">Produto Ativo</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="featured"
+                checked={isFeatured}
+                onCheckedChange={setIsFeatured}
+              />
+              <Label htmlFor="featured">Produto em Destaque</Label>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="isFeatured">Produto em Destaque</Label>
-            <Switch
-              id="isFeatured"
-              checked={isFeatured}
-              onCheckedChange={setIsFeatured}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               Cancelar
             </Button>
-            <Button type="submit" className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white">
-              Criar Produto
+            <Button
+              type="submit"
+              className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
+              disabled={loading || !name.trim() || !price}
+            >
+              {loading ? "Criando..." : "Criar Produto"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

@@ -377,6 +377,94 @@ export type Database = {
           },
         ]
       }
+      product_option_values: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_default: boolean | null
+          name: string
+          option_id: string | null
+          price_adjustment: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          option_id?: string | null
+          price_adjustment?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          option_id?: string | null
+          price_adjustment?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_option_values_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "product_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_options: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          is_required: boolean | null
+          max_selections: number | null
+          min_selections: number | null
+          name: string
+          product_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_required?: boolean | null
+          max_selections?: number | null
+          min_selections?: number | null
+          name: string
+          product_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_required?: boolean | null
+          max_selections?: number | null
+          min_selections?: number | null
+          name?: string
+          product_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_options_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: string | null
@@ -516,6 +604,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "restaurant_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_themes: {
+        Row: {
+          accent_color: string | null
+          background_color: string | null
+          banner_style: string | null
+          created_at: string | null
+          custom_css: string | null
+          font_family: string | null
+          id: string
+          logo_position: string | null
+          primary_color: string | null
+          restaurant_id: string | null
+          secondary_color: string | null
+          text_color: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          background_color?: string | null
+          banner_style?: string | null
+          created_at?: string | null
+          custom_css?: string | null
+          font_family?: string | null
+          id?: string
+          logo_position?: string | null
+          primary_color?: string | null
+          restaurant_id?: string | null
+          secondary_color?: string | null
+          text_color?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          background_color?: string | null
+          banner_style?: string | null
+          created_at?: string | null
+          custom_css?: string | null
+          font_family?: string | null
+          id?: string
+          logo_position?: string | null
+          primary_color?: string | null
+          restaurant_id?: string | null
+          secondary_color?: string | null
+          text_color?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_themes_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: true
             referencedRelation: "restaurants"
@@ -665,6 +809,10 @@ export type Database = {
     Functions: {
       generate_order_number: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_slug: {
+        Args: { name: string }
         Returns: string
       }
     }
