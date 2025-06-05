@@ -2,6 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import StatsCards from "@/components/dashboard/StatsCards";
 import RecentOrders from "@/components/dashboard/RecentOrders";
 import SalesChart from "@/components/dashboard/SalesChart";
@@ -17,9 +18,11 @@ const DashboardOverview = () => {
             Aqui está o resumo do seu restaurante hoje.
           </p>
         </div>
-        <Button className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white">
-          Ver Cardápio do Cliente
-        </Button>
+        <Link to="/restaurante/demo">
+          <Button className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white">
+            Ver Cardápio do Cliente
+          </Button>
+        </Link>
       </div>
 
       <StatsCards />
