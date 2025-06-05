@@ -2,34 +2,36 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, ShoppingBag, Users, Clock } from "lucide-react";
 
+type ChangeType = "positive" | "negative" | "neutral";
+
 const StatsCards = () => {
   const stats = [
     {
       title: "Vendas Hoje",
       value: "R$ 0,00",
       change: "+0%",
-      changeType: "neutral" as const,
+      changeType: "neutral" as ChangeType,
       icon: TrendingUp,
     },
     {
       title: "Pedidos Hoje",
       value: "0",
       change: "+0%",
-      changeType: "neutral" as const,
+      changeType: "neutral" as ChangeType,
       icon: ShoppingBag,
     },
     {
       title: "Novos Clientes",
       value: "0",
       change: "+0%",
-      changeType: "neutral" as const,
+      changeType: "neutral" as ChangeType,
       icon: Users,
     },
     {
       title: "Tempo Médio",
       value: "0 min",
       change: "+0%",
-      changeType: "neutral" as const,
+      changeType: "neutral" as ChangeType,
       icon: Clock,
     },
   ];
