@@ -1,4 +1,3 @@
-
 -- ========================================
 -- SISTEMA COMANDEJÁ - ESTRUTURA DO BANCO
 -- ========================================
@@ -138,6 +137,36 @@ CREATE TABLE public.products (
 );
 
 -- ========================================
+-- OPÇÕES DE PRODUTOS
+-- ========================================
+CREATE TABLE public.product_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  min_selections INTEGER DEFAULT 0,
+  max_selections INTEGER DEFAULT 1,
+  is_required BOOLEAN DEFAULT false,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================
+-- VALORES DE OPÇÕES DE PRODUTOS
+-- ========================================
+CREATE TABLE public.product_option_values (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  option_id UUID REFERENCES public.product_options(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  price_adjustment DECIMAL DEFAULT 0,
+  is_default BOOLEAN DEFAULT false,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================
 -- CLIENTES
 -- ========================================
 CREATE TABLE public.customers (
@@ -261,6 +290,25 @@ CREATE TABLE public.dashboard_statistics (
 );
 
 -- ========================================
+-- TEMAS DE RESTAURANTES
+-- ========================================
+CREATE TABLE public.restaurant_themes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID REFERENCES public.restaurants(id) ON DELETE CASCADE UNIQUE,
+  primary_color TEXT DEFAULT '#3B82F6',
+  secondary_color TEXT DEFAULT '#10B981',
+  accent_color TEXT DEFAULT '#F59E0B',
+  text_color TEXT DEFAULT '#111827',
+  background_color TEXT DEFAULT '#F9FAFB',
+  font_family TEXT DEFAULT 'Inter, sans-serif',
+  logo_position TEXT DEFAULT 'center',
+  banner_style TEXT DEFAULT 'full',
+  custom_css TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================
 -- POLÍTICAS DE SEGURANÇA (RLS)
 -- ========================================
 
@@ -270,12 +318,15 @@ ALTER TABLE public.restaurants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.restaurant_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_option_values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.dashboard_statistics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.restaurant_themes ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para profiles
 CREATE POLICY "Users can view own profile" ON public.profiles
@@ -303,7 +354,12 @@ CREATE POLICY "Restaurant owners can manage their categories" ON public.categori
     SELECT id FROM public.restaurants WHERE owner_id = auth.uid()
   ));
 CREATE POLICY "Public can view active categories" ON public.categories
-  FOR SELECT USING (is_active = true);
+  FOR SELECT USING (
+    is_active = true AND 
+    restaurant_id IN (
+      SELECT id FROM public.restaurants WHERE is_active = true
+    )
+  );
 
 -- Políticas para products
 CREATE POLICY "Restaurant owners can manage their products" ON public.products
@@ -311,7 +367,44 @@ CREATE POLICY "Restaurant owners can manage their products" ON public.products
     SELECT id FROM public.restaurants WHERE owner_id = auth.uid()
   ));
 CREATE POLICY "Public can view active products" ON public.products
-  FOR SELECT USING (is_active = true);
+  FOR SELECT USING (
+    is_active = true AND 
+    restaurant_id IN (
+      SELECT id FROM public.restaurants WHERE is_active = true
+    )
+  );
+
+-- Políticas para product_options
+CREATE POLICY "Restaurant owners can manage their product options" ON public.product_options
+  FOR ALL USING (product_id IN (
+    SELECT id FROM public.products WHERE restaurant_id IN (
+      SELECT id FROM public.restaurants WHERE owner_id = auth.uid()
+    )
+  ));
+CREATE POLICY "Public can view product options" ON public.product_options
+  FOR SELECT USING (product_id IN (
+    SELECT id FROM public.products WHERE is_active = true AND restaurant_id IN (
+      SELECT id FROM public.restaurants WHERE is_active = true
+    )
+  ));
+
+-- Políticas para product_option_values
+CREATE POLICY "Restaurant owners can manage their product option values" ON public.product_option_values
+  FOR ALL USING (option_id IN (
+    SELECT id FROM public.product_options WHERE product_id IN (
+      SELECT id FROM public.products WHERE restaurant_id IN (
+        SELECT id FROM public.restaurants WHERE owner_id = auth.uid()
+      )
+    )
+  ));
+CREATE POLICY "Public can view product option values" ON public.product_option_values
+  FOR SELECT USING (option_id IN (
+    SELECT id FROM public.product_options WHERE product_id IN (
+      SELECT id FROM public.products WHERE is_active = true AND restaurant_id IN (
+        SELECT id FROM public.restaurants WHERE is_active = true
+      )
+    )
+  ));
 
 -- Políticas para customers
 CREATE POLICY "Restaurant owners can manage their customers" ON public.customers
@@ -332,6 +425,12 @@ CREATE POLICY "Restaurant owners can manage their orders" ON public.orders
   ));
 CREATE POLICY "Public can create orders" ON public.orders
   FOR INSERT WITH CHECK (true);
+CREATE POLICY "Customers can view their own orders" ON public.orders
+  FOR SELECT USING (
+    customer_id IN (
+      SELECT id FROM public.customers WHERE id = auth.uid()
+    )
+  );
 
 -- Políticas para order_items
 CREATE POLICY "Restaurant owners can view their order items" ON public.order_items
@@ -359,6 +458,16 @@ CREATE POLICY "Restaurant owners can manage their statistics" ON public.dashboar
     SELECT id FROM public.restaurants WHERE owner_id = auth.uid()
   ));
 
+-- Políticas para restaurant_themes
+CREATE POLICY "Restaurant owners can manage their theme" ON public.restaurant_themes
+  FOR ALL USING (restaurant_id IN (
+    SELECT id FROM public.restaurants WHERE owner_id = auth.uid()
+  ));
+CREATE POLICY "Public can view restaurant themes" ON public.restaurant_themes
+  FOR SELECT USING (restaurant_id IN (
+    SELECT id FROM public.restaurants WHERE is_active = true
+  ));
+
 -- ========================================
 -- ÍNDICES PARA PERFORMANCE
 -- ========================================
@@ -367,6 +476,8 @@ CREATE INDEX idx_restaurants_slug ON public.restaurants(slug);
 CREATE INDEX idx_categories_restaurant_id ON public.categories(restaurant_id);
 CREATE INDEX idx_products_restaurant_id ON public.products(restaurant_id);
 CREATE INDEX idx_products_category_id ON public.products(category_id);
+CREATE INDEX idx_product_options_product_id ON public.product_options(product_id);
+CREATE INDEX idx_product_option_values_option_id ON public.product_option_values(option_id);
 CREATE INDEX idx_customers_restaurant_id ON public.customers(restaurant_id);
 CREATE INDEX idx_orders_restaurant_id ON public.orders(restaurant_id);
 CREATE INDEX idx_orders_customer_id ON public.orders(customer_id);
@@ -379,6 +490,52 @@ CREATE INDEX idx_dashboard_statistics_restaurant_date ON public.dashboard_statis
 -- ========================================
 -- FUNÇÕES E TRIGGERS
 -- ========================================
+
+-- Função para gerar slugs automáticos para restaurantes
+CREATE OR REPLACE FUNCTION public.generate_slug(name TEXT)
+RETURNS TEXT AS $$
+DECLARE
+  base_slug TEXT;
+  final_slug TEXT;
+  counter INTEGER := 0;
+BEGIN
+  -- Converter para minúsculas e substituir caracteres especiais
+  base_slug := LOWER(name);
+  base_slug := REPLACE(base_slug, ' ', '-');
+  base_slug := REGEXP_REPLACE(base_slug, '[^a-z0-9\-]', '', 'g');
+  base_slug := REGEXP_REPLACE(base_slug, '\-+', '-', 'g');
+  base_slug := TRIM(BOTH '-' FROM base_slug);
+  
+  -- Verificar se o slug já existe
+  final_slug := base_slug;
+  LOOP
+    EXIT WHEN NOT EXISTS (
+      SELECT 1 FROM public.restaurants WHERE slug = final_slug
+    );
+    counter := counter + 1;
+    final_slug := base_slug || '-' || counter;
+  END LOOP;
+  
+  RETURN final_slug;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para gerar slug automaticamente se não for fornecido
+CREATE OR REPLACE FUNCTION public.set_restaurant_slug()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.slug IS NULL OR NEW.slug = '' THEN
+    NEW.slug := public.generate_slug(NEW.name);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Adicionar trigger para gerar slug
+DROP TRIGGER IF EXISTS set_restaurant_slug_trigger ON public.restaurants;
+CREATE TRIGGER set_restaurant_slug_trigger
+  BEFORE INSERT ON public.restaurants
+  FOR EACH ROW EXECUTE FUNCTION public.set_restaurant_slug();
 
 -- Função para registrar novos usuários
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -447,6 +604,10 @@ CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON public.categories
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON public.products
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_product_options_updated_at BEFORE UPDATE ON public.product_options
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_product_option_values_updated_at BEFORE UPDATE ON public.product_option_values
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON public.customers
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_coupons_updated_at BEFORE UPDATE ON public.coupons
@@ -456,6 +617,8 @@ CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders
 CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON public.reviews
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER update_dashboard_statistics_updated_at BEFORE UPDATE ON public.dashboard_statistics
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_restaurant_themes_updated_at BEFORE UPDATE ON public.restaurant_themes
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Função para gerar números de pedido
@@ -492,3 +655,58 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_customer_stats_trigger
   AFTER INSERT ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.update_customer_stats();
+
+-- Função para atualizar automaticamente as estatísticas do dashboard
+CREATE OR REPLACE FUNCTION public.update_dashboard_statistics()
+RETURNS TRIGGER AS $$
+DECLARE
+  order_date DATE;
+  restaurant_id UUID;
+  total_revenue DECIMAL;
+  avg_order_value DECIMAL;
+  total_orders INTEGER;
+  total_customers INTEGER;
+BEGIN
+  -- Definir variáveis
+  order_date := DATE(NEW.created_at);
+  restaurant_id := NEW.restaurant_id;
+  
+  -- Calcular estatísticas
+  SELECT 
+    COUNT(DISTINCT o.id) AS orders_count,
+    COUNT(DISTINCT o.customer_id) AS customers_count,
+    COALESCE(SUM(o.total), 0) AS revenue_sum,
+    CASE 
+      WHEN COUNT(DISTINCT o.id) > 0 THEN COALESCE(SUM(o.total), 0) / COUNT(DISTINCT o.id)
+      ELSE 0
+    END AS avg_order
+  INTO total_orders, total_customers, total_revenue, avg_order_value
+  FROM public.orders o
+  WHERE o.restaurant_id = restaurant_id
+  AND DATE(o.created_at) = order_date;
+  
+  -- Inserir ou atualizar estatísticas
+  INSERT INTO public.dashboard_statistics (
+    restaurant_id, date, total_orders, total_revenue, 
+    total_customers, average_order_value
+  )
+  VALUES (
+    restaurant_id, order_date, total_orders, total_revenue,
+    total_customers, avg_order_value
+  )
+  ON CONFLICT (restaurant_id, date) DO UPDATE SET
+    total_orders = EXCLUDED.total_orders,
+    total_revenue = EXCLUDED.total_revenue,
+    total_customers = EXCLUDED.total_customers,
+    average_order_value = EXCLUDED.average_order_value,
+    updated_at = NOW();
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Adicionar trigger para atualizar estatísticas
+DROP TRIGGER IF EXISTS update_dashboard_statistics_trigger ON public.orders;
+CREATE TRIGGER update_dashboard_statistics_trigger
+  AFTER INSERT OR UPDATE ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.update_dashboard_statistics();
