@@ -1,4 +1,4 @@
-
+import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -6,8 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Search, Filter, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import FiltersModal from "@/components/dashboard/modals/FiltersModal";
 
 const DashboardCustomers = () => {
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: Implement search logic
+    console.log("Searching for:", searchQuery);
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
@@ -25,19 +35,25 @@ const DashboardCustomers = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <form onSubmit={handleSearch} className="flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Buscar clientes..."
                     className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <Button variant="outline">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setShowFiltersModal(true)}
+                >
                   <Filter className="w-4 h-4 mr-2" />
                   Filtros
                 </Button>
-              </div>
+              </form>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card>
@@ -100,6 +116,12 @@ const DashboardCustomers = () => {
           </div>
         </main>
       </div>
+
+      <FiltersModal 
+        open={showFiltersModal} 
+        onOpenChange={setShowFiltersModal}
+        type="customers"
+      />
     </SidebarProvider>
   );
 };

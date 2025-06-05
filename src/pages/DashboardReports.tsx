@@ -1,12 +1,21 @@
 
+import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Calendar, TrendingUp } from "lucide-react";
+import ExportReportModal from "@/components/dashboard/modals/ExportReportModal";
 
 const DashboardReports = () => {
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  const handleViewDetails = (reportType: string) => {
+    // TODO: Implement view details logic
+    console.log("Viewing details for:", reportType);
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
@@ -22,7 +31,10 @@ const DashboardReports = () => {
                     Análises detalhadas do seu restaurante
                   </p>
                 </div>
-                <Button className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white">
+                <Button 
+                  className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
+                  onClick={() => setShowExportModal(true)}
+                >
                   <Download className="w-4 h-4 mr-2" />
                   Exportar Relatório
                 </Button>
@@ -41,7 +53,12 @@ const DashboardReports = () => {
                     <div className="space-y-2">
                       <div className="text-2xl font-bold">R$ 0,00</div>
                       <p className="text-xs text-muted-foreground">Total de vendas</p>
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => handleViewDetails("sales")}
+                      >
                         Ver Detalhes
                       </Button>
                     </div>
@@ -60,7 +77,12 @@ const DashboardReports = () => {
                     <div className="space-y-2">
                       <div className="text-2xl font-bold">0</div>
                       <p className="text-xs text-muted-foreground">Produtos vendidos</p>
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => handleViewDetails("products")}
+                      >
                         Ver Detalhes
                       </Button>
                     </div>
@@ -79,7 +101,12 @@ const DashboardReports = () => {
                     <div className="space-y-2">
                       <div className="text-2xl font-bold">0</div>
                       <p className="text-xs text-muted-foreground">Clientes ativos</p>
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => handleViewDetails("customers")}
+                      >
                         Ver Detalhes
                       </Button>
                     </div>
@@ -99,6 +126,13 @@ const DashboardReports = () => {
                     <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500 text-lg">Nenhum dado para relatório</p>
                     <p className="text-gray-400 text-sm mt-2">Os relatórios aparecerão quando houver vendas</p>
+                    <Button 
+                      className="mt-4 bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
+                      onClick={() => setShowExportModal(true)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Gerar Primeiro Relatório
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -106,6 +140,11 @@ const DashboardReports = () => {
           </div>
         </main>
       </div>
+
+      <ExportReportModal 
+        open={showExportModal} 
+        onOpenChange={setShowExportModal} 
+      />
     </SidebarProvider>
   );
 };

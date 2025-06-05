@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,19 @@ import { Bell, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const DashboardHeader = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: Implement global search logic
+    console.log("Global search for:", searchQuery);
+  };
+
+  const handleNotificationClick = () => {
+    // TODO: Implement notification panel
+    console.log("Opening notifications");
+  };
+
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="flex items-center justify-between px-6 py-4">
@@ -18,15 +32,22 @@ const DashboardHeader = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="relative">
+          <form onSubmit={handleSearch} className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Buscar pedidos, produtos..."
               className="pl-10 w-80"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </form>
           
-          <Button variant="ghost" size="icon" className="relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative"
+            onClick={handleNotificationClick}
+          >
             <Bell className="h-5 w-5" />
             <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1 min-w-[18px] h-[18px] flex items-center justify-center">
               3
