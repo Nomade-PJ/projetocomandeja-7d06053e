@@ -1,16 +1,19 @@
+
 import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, FolderPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NewProductModal from "@/components/dashboard/modals/NewProductModal";
+import NewCategoryModal from "@/components/dashboard/modals/NewCategoryModal";
 import FiltersModal from "@/components/dashboard/modals/FiltersModal";
 
 const DashboardProducts = () => {
   const [showNewProductModal, setShowNewProductModal] = useState(false);
+  const [showNewCategoryModal, setShowNewCategoryModal] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -35,13 +38,22 @@ const DashboardProducts = () => {
                     Gerencie o cardápio do seu restaurante
                   </p>
                 </div>
-                <Button 
-                  className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
-                  onClick={() => setShowNewProductModal(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Novo Produto
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowNewCategoryModal(true)}
+                  >
+                    <FolderPlus className="w-4 h-4 mr-2" />
+                    Criar Categoria
+                  </Button>
+                  <Button 
+                    className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
+                    onClick={() => setShowNewProductModal(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Produto
+                  </Button>
+                </div>
               </div>
 
               <form onSubmit={handleSearch} className="flex items-center gap-4">
@@ -116,14 +128,23 @@ const DashboardProducts = () => {
                 <CardContent>
                   <div className="text-center py-12">
                     <p className="text-gray-500 text-lg">Nenhum produto cadastrado</p>
-                    <p className="text-gray-400 text-sm mt-2">Comece criando seu primeiro produto</p>
-                    <Button 
-                      className="mt-4 bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
-                      onClick={() => setShowNewProductModal(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Criar Primeiro Produto
-                    </Button>
+                    <p className="text-gray-400 text-sm mt-2">Comece criando categorias e produtos</p>
+                    <div className="flex items-center justify-center gap-4 mt-4">
+                      <Button 
+                        variant="outline"
+                        onClick={() => setShowNewCategoryModal(true)}
+                      >
+                        <FolderPlus className="w-4 h-4 mr-2" />
+                        Criar Categoria
+                      </Button>
+                      <Button 
+                        className="bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
+                        onClick={() => setShowNewProductModal(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Criar Primeiro Produto
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -135,6 +156,10 @@ const DashboardProducts = () => {
       <NewProductModal 
         open={showNewProductModal} 
         onOpenChange={setShowNewProductModal} 
+      />
+      <NewCategoryModal 
+        open={showNewCategoryModal} 
+        onOpenChange={setShowNewCategoryModal} 
       />
       <FiltersModal 
         open={showFiltersModal} 

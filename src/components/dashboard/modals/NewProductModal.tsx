@@ -37,6 +37,15 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
       imageUrl,
     });
     onOpenChange(false);
+    // Reset form
+    setName("");
+    setDescription("");
+    setPrice("");
+    setCategory("");
+    setPreparationTime("15");
+    setIsActive(true);
+    setIsFeatured(false);
+    setImageUrl("");
   };
 
   return (
