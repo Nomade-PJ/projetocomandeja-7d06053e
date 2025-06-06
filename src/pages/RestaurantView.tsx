@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,19 +56,28 @@ const RestaurantView = () => {
 
   const fetchRestaurantData = async () => {
     try {
+      console.log('Buscando restaurante com slug:', slug);
+      
       // Buscar dados do restaurante
       const { data: restaurantData, error: restaurantError } = await supabase
         .from('restaurants')
         .select('*')
         .eq('slug', slug)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (restaurantError) {
         console.error('Error fetching restaurant:', restaurantError);
         return;
       }
 
+      if (!restaurantData) {
+        console.log('Restaurante não encontrado para slug:', slug);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Restaurante encontrado:', restaurantData);
       setRestaurant(restaurantData);
 
       // Buscar categorias
@@ -82,6 +91,7 @@ const RestaurantView = () => {
       if (categoriesError) {
         console.error('Error fetching categories:', categoriesError);
       } else {
+        console.log('Categorias encontradas:', categoriesData);
         setCategories(categoriesData || []);
       }
 
@@ -96,6 +106,7 @@ const RestaurantView = () => {
       if (productsError) {
         console.error('Error fetching products:', productsError);
       } else {
+        console.log('Produtos encontrados:', productsData);
         setProducts(productsData || []);
       }
     } catch (error) {
@@ -132,6 +143,7 @@ const RestaurantView = () => {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Restaurante não encontrado</h1>
           <p className="text-gray-600">O restaurante que você está procurando não existe ou está inativo.</p>
+          <p className="text-gray-400 text-sm mt-2">Slug buscado: {slug}</p>
         </div>
       </div>
     );
@@ -204,12 +216,16 @@ const RestaurantView = () => {
                 {featuredProducts.map((product) => (
                   <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                     <div className="relative">
-                      {product.image_url && (
+                      {product.image_url ? (
                         <img
                           src={product.image_url}
                           alt={product.name}
                           className="w-full h-48 object-cover"
                         />
+                      ) : (
+                        <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400">Sem imagem</span>
+                        </div>
                       )}
                       <Badge className="absolute top-2 left-2 bg-yellow-500 text-white">
                         Destaque
@@ -259,12 +275,16 @@ const RestaurantView = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {categoryProducts.map((product) => (
                         <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                          {product.image_url && (
+                          {product.image_url ? (
                             <img
                               src={product.image_url}
                               alt={product.name}
                               className="w-full h-48 object-cover"
                             />
+                          ) : (
+                            <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-400">Sem imagem</span>
+                            </div>
                           )}
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start mb-2">
@@ -307,12 +327,16 @@ const RestaurantView = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {uncategorizedProducts.map((product) => (
                         <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                          {product.image_url && (
+                          {product.image_url ? (
                             <img
                               src={product.image_url}
                               alt={product.name}
                               className="w-full h-48 object-cover"
                             />
+                          ) : (
+                            <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-400">Sem imagem</span>
+                            </div>
                           )}
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start mb-2">
@@ -358,12 +382,16 @@ const RestaurantView = () => {
                     .filter(p => p.category_id === category.id)
                     .map((product) => (
                       <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                        {product.image_url && (
+                        {product.image_url ? (
                           <img
                             src={product.image_url}
                             alt={product.name}
                             className="w-full h-48 object-cover"
                           />
+                        ) : (
+                          <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-400">Sem imagem</span>
+                          </div>
                         )}
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-2">

@@ -29,11 +29,16 @@ export const useProducts = () => {
   useEffect(() => {
     if (restaurant?.id) {
       fetchProducts();
+    } else {
+      setLoading(false);
     }
   }, [restaurant?.id]);
 
   const fetchProducts = async () => {
-    if (!restaurant?.id) return;
+    if (!restaurant?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -60,7 +65,14 @@ export const useProducts = () => {
   };
 
   const createProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'restaurant_id'>) => {
-    if (!restaurant?.id) return null;
+    if (!restaurant?.id) {
+      toast({
+        title: "Erro",
+        description: "Restaurante não encontrado",
+        variant: "destructive"
+      });
+      return null;
+    }
 
     try {
       const { data, error } = await supabase
@@ -95,5 +107,74 @@ export const useProducts = () => {
     }
   };
 
-  return { products, loading, createProduct, refetch: fetchProducts };
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating product:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao atualizar produto",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Produto atualizado com sucesso!"
+      });
+
+      fetchProducts();
+      return data;
+    } catch (error) {
+      console.error('Error:', error);
+      return null;
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting product:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao deletar produto",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Produto deletado com sucesso!"
+      });
+
+      fetchProducts();
+      return true;
+    } catch (error) {
+      console.error('Error:', error);
+      return false;
+    }
+  };
+
+  return { 
+    products, 
+    loading, 
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    refetch: fetchProducts 
+  };
 };

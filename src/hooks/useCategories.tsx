@@ -25,11 +25,16 @@ export const useCategories = () => {
   useEffect(() => {
     if (restaurant?.id) {
       fetchCategories();
+    } else {
+      setLoading(false);
     }
   }, [restaurant?.id]);
 
   const fetchCategories = async () => {
-    if (!restaurant?.id) return;
+    if (!restaurant?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -56,7 +61,14 @@ export const useCategories = () => {
   };
 
   const createCategory = async (categoryData: Omit<Category, 'id' | 'created_at' | 'updated_at' | 'restaurant_id'>) => {
-    if (!restaurant?.id) return null;
+    if (!restaurant?.id) {
+      toast({
+        title: "Erro",
+        description: "Restaurante não encontrado",
+        variant: "destructive"
+      });
+      return null;
+    }
 
     try {
       const { data, error } = await supabase
@@ -91,5 +103,74 @@ export const useCategories = () => {
     }
   };
 
-  return { categories, loading, createCategory, refetch: fetchCategories };
+  const updateCategory = async (id: string, updates: Partial<Category>) => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating category:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao atualizar categoria",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Categoria atualizada com sucesso!"
+      });
+
+      fetchCategories();
+      return data;
+    } catch (error) {
+      console.error('Error:', error);
+      return null;
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting category:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao deletar categoria",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Categoria deletada com sucesso!"
+      });
+
+      fetchCategories();
+      return true;
+    } catch (error) {
+      console.error('Error:', error);
+      return false;
+    }
+  };
+
+  return { 
+    categories, 
+    loading, 
+    createCategory,
+    updateCategory,
+    deleteCategory,
+    refetch: fetchCategories 
+  };
 };

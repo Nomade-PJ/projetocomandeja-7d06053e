@@ -561,6 +561,62 @@ export type Database = {
         }
         Relationships: []
       }
+      restaurant_pages: {
+        Row: {
+          created_at: string | null
+          custom_css: string | null
+          custom_js: string | null
+          description: string | null
+          footer_html: string | null
+          header_html: string | null
+          id: string
+          is_published: boolean | null
+          meta_tags: Json | null
+          restaurant_id: string
+          theme_id: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          custom_css?: string | null
+          custom_js?: string | null
+          description?: string | null
+          footer_html?: string | null
+          header_html?: string | null
+          id?: string
+          is_published?: boolean | null
+          meta_tags?: Json | null
+          restaurant_id: string
+          theme_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          custom_css?: string | null
+          custom_js?: string | null
+          description?: string | null
+          footer_html?: string | null
+          header_html?: string | null
+          id?: string
+          is_published?: boolean | null
+          meta_tags?: Json | null
+          restaurant_id?: string
+          theme_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_pages_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_settings: {
         Row: {
           accepted_payment_methods: string[] | null
