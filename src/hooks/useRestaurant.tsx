@@ -74,7 +74,7 @@ export const useRestaurant = () => {
         return null;
       }
 
-      // O slug será gerado automaticamente pelo trigger, então não precisamos incluí-lo
+      // Incluir o slug vazio para que o trigger possa gerar automaticamente
       const { data, error } = await supabase
         .from('restaurants')
         .insert({
@@ -88,6 +88,7 @@ export const useRestaurant = () => {
           zip_code: restaurantData.zip_code,
           logo_url: restaurantData.logo_url,
           banner_url: restaurantData.banner_url,
+          slug: '', // Será preenchido pelo trigger automaticamente
           owner_id: user.id,
           is_active: true
         })
