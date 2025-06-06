@@ -17,7 +17,7 @@ interface ExportReportModalProps {
 
 const ExportReportModal = ({ open, onOpenChange }: ExportReportModalProps) => {
   const [reportType, setReportType] = useState("");
-  const [format, setFormat] = useState("");
+  const [formatType, setFormatType] = useState("");
   const [dateRange, setDateRange] = useState("");
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
@@ -25,7 +25,7 @@ const ExportReportModal = ({ open, onOpenChange }: ExportReportModalProps) => {
   const handleExport = () => {
     console.log("Exporting report:", {
       reportType,
-      format,
+      format: formatType,
       dateRange,
       startDate,
       endDate,
@@ -59,7 +59,7 @@ const ExportReportModal = ({ open, onOpenChange }: ExportReportModalProps) => {
           </div>
           <div className="space-y-2">
             <Label>Formato</Label>
-            <Select value={format} onValueChange={setFormat}>
+            <Select value={formatType} onValueChange={setFormatType}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o formato" />
               </SelectTrigger>
