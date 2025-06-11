@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +13,15 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Verificar se o usuário já está autenticado
+  useEffect(() => {
+    if (user && !isAuthLoading) {
+      navigate("/dashboard");
+    }
+  }, [user, isAuthLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +43,20 @@ const Login = () => {
     }
   };
 
+  // Mostrar um indicador de carregamento enquanto verifica a autenticação
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-t-primary border-primary/30 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500 font-medium">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se o usuário já estiver autenticado, o useEffect acima irá redirecionar
+  // Caso contrário, mostrar o formulário de login
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">

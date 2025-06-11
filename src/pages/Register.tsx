@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,8 +20,15 @@ const Register = () => {
     acceptTerms: false
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Verificar se o usuário já está autenticado
+  useEffect(() => {
+    if (user && !isAuthLoading) {
+      navigate("/dashboard");
+    }
+  }, [user, isAuthLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +81,18 @@ const Register = () => {
       [e.target.name]: e.target.value
     });
   };
+
+  // Mostrar um indicador de carregamento enquanto verifica a autenticação
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-t-primary border-primary/30 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500 font-medium">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-blue-50 flex items-center justify-center p-4">

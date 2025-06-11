@@ -81,9 +81,11 @@ export function AppSidebar() {
   const { restaurant } = useRestaurant();
 
   const handleLogout = async () => {
-    const { error } = await signOut();
-    if (!error) {
+    try {
+      await signOut();
       navigate("/login");
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
     }
   };
 

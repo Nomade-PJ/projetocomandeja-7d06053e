@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { ProtectedRoute } from "@/components/ui/protected-route";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -54,17 +55,54 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/dashboard/orders" element={<DashboardOrders />} />
-                <Route path="/dashboard/products" element={<DashboardProducts />} />
-                <Route path="/dashboard/customers" element={<DashboardCustomers />} />
-                <Route path="/dashboard/reports" element={<DashboardReports />} />
-                <Route path="/dashboard/reviews" element={<DashboardReviews />} />
-                <Route path="/dashboard/settings" element={<DashboardSettings />} />
-                <Route path="/dashboard/settings/profile" element={<DashboardSettings />} />
+                
+                {/* Rotas protegidas do Dashboard */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/orders" element={
+                  <ProtectedRoute>
+                    <DashboardOrders />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/products" element={
+                  <ProtectedRoute>
+                    <DashboardProducts />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/customers" element={
+                  <ProtectedRoute>
+                    <DashboardCustomers />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/reports" element={
+                  <ProtectedRoute>
+                    <DashboardReports />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/reviews" element={
+                  <ProtectedRoute>
+                    <DashboardReviews />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/settings" element={
+                  <ProtectedRoute>
+                    <DashboardSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/settings/profile" element={
+                  <ProtectedRoute>
+                    <DashboardSettings />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Rotas públicas */}
                 <Route path="/restaurante/:slug" element={<RestaurantView />} />
                 <Route path="/produto/:productId" element={<ProductDetails />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                
+                {/* Rota de fallback */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
