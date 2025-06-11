@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -22,6 +22,7 @@ import EditCategoryModal from "@/components/dashboard/modals/EditCategoryModal";
 import DeleteCategoryModal from "@/components/dashboard/modals/DeleteCategoryModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 // Adicionar a interface Product
 interface Product {
@@ -69,7 +70,7 @@ const DashboardProducts = () => {
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
 
   const { products, loading: productsLoading } = useProducts();
-  const { categories, loading: categoriesLoading, moveCategory } = useCategories();
+  const { categories, loading: categoriesLoading, moveCategory, reorderCategories } = useCategories();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +111,25 @@ const DashboardProducts = () => {
 
   const handleMoveCategory = async (id: string, direction: 'up' | 'down') => {
     await moveCategory(id, direction);
+  };
+
+  const handleDragEnd = (result: any) => {
+    // Ignorar se o item foi solto fora da área ou na mesma posição
+    if (!result.destination || result.destination.index === result.source.index) {
+      return;
+    }
+
+    const draggedItemId = result.draggableId;
+    const reorderedIds = Array.from(categories).sort((a, b) => a.display_order - b.display_order).map(cat => cat.id);
+    
+    // Remove o ID arrastado da sua posição original
+    reorderedIds.splice(result.source.index, 1);
+    
+    // Insere o ID na nova posição
+    reorderedIds.splice(result.destination.index, 0, draggedItemId);
+    
+    // Chama a função para atualizar a ordem no banco de dados
+    reorderCategories(reorderedIds);
   };
 
   if (productsLoading || categoriesLoading) {
@@ -294,14 +314,23 @@ const DashboardProducts = () => {
                           {filteredProducts.map((product) => {
                             const category = categories.find(c => c.id === product.category_id);
                             return (
-                              <Card key={product.id} className="relative group">
+                                                              <Card key={product.id} className="relative group">
                                 <CardContent className="p-4">
-                                  {product.image_url && (
-                                    <img
-                                      src={product.image_url}
-                                      alt={product.name}
-                                      className="w-full h-32 object-cover rounded-md mb-3"
-                                    />
+                                  {product.image_url ? (
+                                    <div className="w-full h-32 rounded-md mb-3 overflow-hidden">
+                                      <img
+                                        src={product.image_url}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Imagem+Inválida';
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-full h-32 bg-gray-100 rounded-md mb-3 flex items-center justify-center">
+                                      <Package className="w-10 h-10 text-gray-300" />
+                                    </div>
                                   )}
                                   <div className="space-y-2">
                                     <div className="flex items-start justify-between">
@@ -395,92 +424,117 @@ const DashboardProducts = () => {
                       ) : (
                         <div className="space-y-4">
                           <div className="text-sm text-muted-foreground mb-4">
-                            Use os botões para reorganizar as categorias. A ordem aqui será a mesma exibida no cardápio do cliente.
+                            Arraste as categorias ou use os botões para reorganizar a ordem. A ordem aqui será a mesma exibida no cardápio do cliente.
                           </div>
-                          <div className="grid gap-2">
-                            {categories.map((category, index) => (
-                              <div 
-                                key={category.id} 
-                                className="p-4 border rounded-md shadow-sm bg-white flex items-center justify-between"
-                              >
-                                <div className="flex items-center gap-3 flex-grow">
-                                  <div className="text-gray-400 cursor-grab">
-                                    <GripVertical className="w-5 h-5" />
-                                  </div>
-                                  {category.image_url ? (
-                                    <div className="w-12 h-12 relative rounded-md overflow-hidden border">
-                                      <img
-                                        src={category.image_url}
-                                        alt={category.name}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Imagem+Inválida';
-                                        }}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center">
-                                      <FolderPlus className="w-6 h-6 text-gray-400" />
-                                    </div>
-                                  )}
-                                  <div className="flex-grow">
-                                    <h3 className="font-medium">{category.name}</h3>
-                                    {category.description && (
-                                      <p className="text-sm text-gray-500 line-clamp-1">{category.description}</p>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <Badge variant={category.is_active ? "default" : "destructive"}>
-                                        {category.is_active ? "Ativa" : "Inativa"}
-                                      </Badge>
-                                      <span className="text-xs text-muted-foreground">
-                                        Criada em {format(new Date(category.created_at), "dd MMM yyyy", { locale: ptBR })}
-                                      </span>
-                                    </div>
-                                  </div>
+                          <DragDropContext onDragEnd={handleDragEnd}>
+                            <Droppable droppableId="categoriesList">
+                              {(provided) => (
+                                <div 
+                                  className="grid gap-2"
+                                  {...provided.droppableProps}
+                                  ref={provided.innerRef}
+                                >
+                                  {categories
+                                    .sort((a, b) => a.display_order - b.display_order)
+                                    .map((category, index) => (
+                                    <Draggable 
+                                      key={category.id} 
+                                      draggableId={category.id} 
+                                      index={index}
+                                    >
+                                      {(provided, snapshot) => (
+                                        <div 
+                                          ref={provided.innerRef}
+                                          {...provided.draggableProps}
+                                          className={`p-4 border rounded-md shadow-sm bg-white flex items-center justify-between ${snapshot.isDragging ? 'bg-gray-50' : ''}`}
+                                        >
+                                          <div className="flex items-center gap-3 flex-grow">
+                                            <div 
+                                              {...provided.dragHandleProps} 
+                                              className="text-gray-400 cursor-grab"
+                                            >
+                                              <GripVertical className="w-5 h-5" />
+                                            </div>
+                                            {category.image_url ? (
+                                              <div className="w-12 h-12 relative rounded-md overflow-hidden border">
+                                                <img
+                                                  src={category.image_url}
+                                                  alt={category.name}
+                                                  className="w-full h-full object-cover"
+                                                  onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Imagem+Inválida';
+                                                  }}
+                                                />
+                                              </div>
+                                            ) : (
+                                              <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center">
+                                                <FolderPlus className="w-6 h-6 text-gray-400" />
+                                              </div>
+                                            )}
+                                            <div className="flex-grow">
+                                              <h3 className="font-medium">{category.name}</h3>
+                                              {category.description && (
+                                                <p className="text-sm text-gray-500 line-clamp-1">{category.description}</p>
+                                              )}
+                                              <div className="flex items-center gap-2 mt-1">
+                                                <Badge variant={category.is_active ? "default" : "destructive"}>
+                                                  {category.is_active ? "Ativa" : "Inativa"}
+                                                </Badge>
+                                                <span className="text-xs text-muted-foreground">
+                                                  Criada em {format(new Date(category.created_at), "dd MMM yyyy", { locale: ptBR })}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <div className="flex flex-col gap-1">
+                                              <Button 
+                                                variant="ghost" 
+                                                size="sm"
+                                                disabled={index === 0}
+                                                onClick={() => handleMoveCategory(category.id, 'up')}
+                                                className="px-1 h-8"
+                                              >
+                                                <ArrowUp className="w-5 h-5" />
+                                              </Button>
+                                              <Button 
+                                                variant="ghost" 
+                                                size="sm"
+                                                disabled={index === categories.length - 1} 
+                                                onClick={() => handleMoveCategory(category.id, 'down')}
+                                                className="px-1 h-8"
+                                              >
+                                                <ArrowDown className="w-5 h-5" />
+                                              </Button>
+                                            </div>
+                                            <div className="flex items-center gap-1 ml-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                className="h-9 px-2"
+                                                onClick={() => handleEditCategory(category)}
+                                              >
+                                                <Edit className="w-4 h-4" />
+                                              </Button>
+                                              <Button 
+                                                variant="destructive" 
+                                                size="sm"
+                                                className="h-9 px-2"
+                                                onClick={() => handleDeleteCategory(category)}
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {provided.placeholder}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="flex flex-col gap-1">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      disabled={index === 0}
-                                      onClick={() => handleMoveCategory(category.id, 'up')}
-                                      className="px-1 h-8"
-                                    >
-                                      <ArrowUp className="w-5 h-5" />
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      disabled={index === categories.length - 1} 
-                                      onClick={() => handleMoveCategory(category.id, 'down')}
-                                      className="px-1 h-8"
-                                    >
-                                      <ArrowDown className="w-5 h-5" />
-                                    </Button>
-                                  </div>
-                                  <div className="flex items-center gap-1 ml-2">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      className="h-9 px-2"
-                                      onClick={() => handleEditCategory(category)}
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                    <Button 
-                                      variant="destructive" 
-                                      size="sm"
-                                      className="h-9 px-2"
-                                      onClick={() => handleDeleteCategory(category)}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                              )}
+                            </Droppable>
+                          </DragDropContext>
                         </div>
                       )}
                     </CardContent>

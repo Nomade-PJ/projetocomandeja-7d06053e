@@ -28,7 +28,6 @@ import {
   ClipboardList,
   TrendingUp,
   Star,
-  MoreHorizontal,
   LogOut,
   User,
   FolderOpen
@@ -155,7 +154,6 @@ export function AppSidebar() {
                     <span className="text-sm text-muted-foreground">{user?.email || "sem email"}</span>
                   </div>
                 </div>
-                <MoreHorizontal className="w-5 h-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">

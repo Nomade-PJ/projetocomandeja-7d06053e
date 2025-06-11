@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import DirectImageUpload from "@/components/dashboard/DirectImageUpload";
 
 interface NewProductModalProps {
   open: boolean;
@@ -20,7 +20,7 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [preparationTime, setPreparationTime] = useState("15");
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -40,7 +40,7 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
       description: description.trim() || undefined,
       price: parseFloat(price),
       category_id: categoryId || undefined,
-      image_url: imageUrl.trim() || undefined,
+      image_url: imageUrl || undefined,
       preparation_time: parseInt(preparationTime) || 15,
       is_active: isActive,
       is_featured: isFeatured,
@@ -52,7 +52,7 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
       setDescription("");
       setPrice("");
       setCategoryId("");
-      setImageUrl("");
+      setImageUrl(null);
       setPreparationTime("15");
       setIsActive(true);
       setIsFeatured(false);
@@ -60,6 +60,10 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
     }
     
     setLoading(false);
+  };
+
+  const handleImageUrlChange = (url: string | null) => {
+    setImageUrl(url);
   };
 
   return (
@@ -125,16 +129,10 @@ const NewProductModal = ({ open, onOpenChange }: NewProductModalProps) => {
             />
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="image">URL da Imagem</Label>
-            <Input
-              id="image"
-              type="url"
-              placeholder="https://exemplo.com/imagem.jpg"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-            />
-          </div>
+          <DirectImageUpload 
+            onImageUrlChange={handleImageUrlChange}
+            initialImageUrl={null}
+          />
           
           <div className="space-y-2">
             <Label htmlFor="prep-time">Tempo de Preparo (minutos)</Label>

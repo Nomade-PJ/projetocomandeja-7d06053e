@@ -1,15 +1,15 @@
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useRestaurant } from './useRestaurant';
+import { useRestaurant } from '@/hooks/useRestaurant';
 
 interface Product {
   id: string;
   name: string;
   description?: string;
   price: number;
-  image_url?: string;
+  image_url?: string | null;
   is_active: boolean;
   is_featured: boolean;
   preparation_time: number;
@@ -20,161 +20,206 @@ interface Product {
   updated_at: string;
 }
 
+interface ProductInput {
+  name: string;
+  description?: string;
+  price: number;
+  image_url?: string | null;
+  is_active: boolean;
+  is_featured: boolean;
+  preparation_time: number;
+  display_order?: number;
+  category_id?: string;
+}
+
 export const useProducts = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { restaurant } = useRestaurant();
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (restaurant?.id) {
-      fetchProducts();
-    } else {
-      setLoading(false);
-    }
-  }, [restaurant?.id]);
-
-  const fetchProducts = async () => {
-    if (!restaurant?.id) {
-      setLoading(false);
-      return;
-    }
-
-    try {
+  const queryClient = useQueryClient();
+  const { restaurant } = useRestaurant();
+  
+  // Buscar todos os produtos
+  const { data: products = [], isLoading, error } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      if (!restaurant?.id) return [];
+      
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, categories(name)')
         .eq('restaurant_id', restaurant.id)
-        .order('display_order');
-
+        .order('display_order', { ascending: true });
+      
       if (error) {
-        console.error('Error fetching products:', error);
-        toast({
-          title: "Erro",
-          description: "Erro ao carregar produtos",
-          variant: "destructive"
-        });
-      } else {
-        setProducts(data || []);
+        console.error('Erro ao buscar produtos:', error);
+        return [];
       }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'restaurant_id'>) => {
+      
+      return data;
+    },
+    enabled: !!restaurant?.id
+  });
+  
+  // Criar um novo produto
+  const createProduct = async (productData: ProductInput) => {
     if (!restaurant?.id) {
       toast({
         title: "Erro",
-        description: "Restaurante não encontrado",
+        description: "Não foi possível identificar o restaurante",
         variant: "destructive"
       });
       return null;
     }
-
+    
+    setLoading(true);
+    
     try {
       const { data, error } = await supabase
         .from('products')
-        .insert({
+        .insert([{
           ...productData,
-          restaurant_id: restaurant.id
-        })
+          restaurant_id: restaurant.id,
+          // Garantir que o campo image_url seja explícito, mesmo que seja null
+          image_url: productData.image_url || null
+        }])
         .select()
         .single();
-
+      
       if (error) {
-        console.error('Error creating product:', error);
+        console.error('Erro ao criar produto:', error);
         toast({
           title: "Erro",
-          description: "Erro ao criar produto",
+          description: `Falha ao criar produto: ${error.message}`,
           variant: "destructive"
         });
         return null;
       }
-
+      
+      // Invalidar a query para recarregar a lista
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      
       toast({
         title: "Sucesso",
         description: "Produto criado com sucesso!"
       });
-
-      fetchProducts();
+      
       return data;
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Erro inesperado ao criar produto:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Ocorreu um erro inesperado",
+        variant: "destructive"
+      });
       return null;
+    } finally {
+      setLoading(false);
     }
   };
-
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
+  
+  // Atualizar um produto existente
+  const updateProduct = async (id: string, productData: ProductInput) => {
+    setLoading(true);
+    
     try {
+      console.log('Atualizando produto:', id, 'com dados:', productData);
+      
+      // Certificar-se de que o campo image_url seja explicitamente definido, mesmo se for null
+      const updateData = {
+        ...productData,
+        image_url: productData.image_url === undefined ? undefined : productData.image_url
+      };
+      
+      console.log('Dados de atualização preparados:', updateData);
+      
       const { data, error } = await supabase
         .from('products')
-        .update(updates)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
-
+      
       if (error) {
-        console.error('Error updating product:', error);
+        console.error('Erro ao atualizar produto:', error);
         toast({
           title: "Erro",
-          description: "Erro ao atualizar produto",
+          description: `Falha ao atualizar produto: ${error.message}`,
           variant: "destructive"
         });
         return null;
       }
-
+      
+      // Invalidar a query para recarregar a lista
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      
       toast({
         title: "Sucesso",
         description: "Produto atualizado com sucesso!"
       });
-
-      fetchProducts();
+      
       return data;
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Erro inesperado ao atualizar produto:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Ocorreu um erro inesperado",
+        variant: "destructive"
+      });
       return null;
+    } finally {
+      setLoading(false);
     }
   };
-
+  
+  // Excluir um produto
   const deleteProduct = async (id: string) => {
+    setLoading(true);
+    
     try {
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', id);
-
+      
       if (error) {
-        console.error('Error deleting product:', error);
+        console.error('Erro ao excluir produto:', error);
         toast({
           title: "Erro",
-          description: "Erro ao deletar produto",
+          description: `Falha ao excluir produto: ${error.message}`,
           variant: "destructive"
         });
         return false;
       }
-
+      
+      // Invalidar a query para recarregar a lista
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      
       toast({
         title: "Sucesso",
-        description: "Produto deletado com sucesso!"
+        description: "Produto excluído com sucesso!"
       });
-
-      fetchProducts();
+      
       return true;
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Erro inesperado ao excluir produto:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Ocorreu um erro inesperado",
+        variant: "destructive"
+      });
       return false;
+    } finally {
+      setLoading(false);
     }
   };
-
-  return { 
-    products, 
-    loading, 
+  
+  return {
+    products,
+    isLoading,
+    error,
+    loading,
     createProduct,
     updateProduct,
-    deleteProduct,
-    refetch: fetchProducts 
+    deleteProduct
   };
 };

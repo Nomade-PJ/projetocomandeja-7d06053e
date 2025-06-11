@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import DirectImageUpload from "@/components/dashboard/DirectImageUpload";
+import { useToast } from '@/hooks/use-toast';
 
 interface Product {
   id: string;
@@ -36,7 +38,7 @@ const EditProductModal = ({ open, onOpenChange, product }: EditProductModalProps
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [preparationTime, setPreparationTime] = useState("15");
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -44,6 +46,7 @@ const EditProductModal = ({ open, onOpenChange, product }: EditProductModalProps
   
   const { updateProduct } = useProducts();
   const { categories } = useCategories();
+  const { toast } = useToast();
 
   // Carregar dados do produto quando o modal abrir
   useEffect(() => {
@@ -52,7 +55,7 @@ const EditProductModal = ({ open, onOpenChange, product }: EditProductModalProps
       setDescription(product.description || "");
       setPrice(product.price.toString());
       setCategoryId(product.category_id || "");
-      setImageUrl(product.image_url || "");
+      setImageUrl(product.image_url || null);
       setPreparationTime(product.preparation_time.toString());
       setIsActive(product.is_active);
       setIsFeatured(product.is_featured);
@@ -65,22 +68,39 @@ const EditProductModal = ({ open, onOpenChange, product }: EditProductModalProps
 
     setLoading(true);
     
+    console.log("Atualizando produto com imageUrl:", imageUrl);
+    
     const result = await updateProduct(product.id, {
       name: name.trim(),
       description: description.trim() || undefined,
       price: parseFloat(price),
       category_id: categoryId || undefined,
-      image_url: imageUrl.trim() || undefined,
+      image_url: imageUrl, // Pode ser null explicitamente para remover a imagem
       preparation_time: parseInt(preparationTime) || 15,
       is_active: isActive,
       is_featured: isFeatured
     });
 
     if (result) {
+      toast({
+        title: "Sucesso",
+        description: "Produto atualizado com sucesso!",
+      });
       onOpenChange(false);
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o produto.",
+        variant: "destructive"
+      });
     }
     
     setLoading(false);
+  };
+
+  const handleImageUrlChange = (url: string | null) => {
+    console.log("Nova URL da imagem:", url);
+    setImageUrl(url);
   };
 
   return (
@@ -146,16 +166,10 @@ const EditProductModal = ({ open, onOpenChange, product }: EditProductModalProps
             />
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="image">URL da Imagem</Label>
-            <Input
-              id="image"
-              type="url"
-              placeholder="https://exemplo.com/imagem.jpg"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-            />
-          </div>
+          <DirectImageUpload 
+            onImageUrlChange={handleImageUrlChange}
+            initialImageUrl={imageUrl}
+          />
           
           <div className="space-y-2">
             <Label htmlFor="prep-time">Tempo de Preparo (minutos)</Label>
