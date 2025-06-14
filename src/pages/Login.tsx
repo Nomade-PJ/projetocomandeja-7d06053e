@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation, Location } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,16 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Mail, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+// Definir interface para o estado de localização
+interface LocationState {
+  from?: {
+    pathname?: string;
+    search?: string;
+  };
+  message?: string;
+}
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -15,13 +25,73 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Obter o estado da localização
+  const locationState = location.state as LocationState | null;
 
-  // Verificar se o usuário já está autenticado
+  // Verificar se o usuário já está autenticado e redirecionar com base no papel
   useEffect(() => {
-    if (user && !isAuthLoading) {
-      navigate("/dashboard");
-    }
-  }, [user, isAuthLoading, navigate]);
+    const checkUserAndRedirect = async () => {
+      if (!user || isAuthLoading) return;
+
+      // Verificar se estamos tentando acessar diretamente a página de perfil
+      const fromProfile = locationState?.from?.pathname === '/perfil' && locationState?.from?.search?.includes('direct=true');
+      
+      // Se estamos tentando acessar diretamente a página de perfil, redirecionar para lá
+      if (fromProfile) {
+        navigate('/perfil?direct=true');
+        return;
+      }
+
+      try {
+        // Obter o papel (role) do usuário
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao verificar perfil:', error);
+          return;
+        }
+
+        // Verificar o tipo de usuário e redirecionar adequadamente
+        const userRole = data?.role;
+        
+        if (userRole === 'customer') {
+          // Se for cliente, verificar restaurante registrado nos metadados
+          const registeredRestaurantId = user.user_metadata?.registered_restaurant_id;
+          
+          if (registeredRestaurantId) {
+            const { data: restaurant } = await supabase
+              .from('restaurants')
+              .select('slug')
+              .eq('id', registeredRestaurantId)
+              .single();
+              
+            if (restaurant?.slug) {
+              navigate(`/restaurante/${restaurant.slug}`);
+              return;
+            }
+          }
+          
+          // Fallback para home se não encontrar restaurante
+          navigate('/');
+        } else {
+          // Se for admin ou dono de restaurante, vai para o dashboard
+          navigate('/dashboard');
+        }
+      } catch (err) {
+        console.error('Erro ao verificar perfil:', err);
+        // Em caso de erro, manda para o dashboard como fallback
+        navigate('/dashboard');
+      }
+    };
+    
+    checkUserAndRedirect();
+  }, [user, isAuthLoading, navigate, locationState]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +104,7 @@ const Login = () => {
         toast.error("Erro ao fazer login: " + error.message);
       } else {
         toast.success("Login realizado com sucesso!");
-        navigate("/dashboard");
+        // O redirecionamento é gerenciado pelo useEffect
       }
     } catch (error) {
       toast.error("Erro inesperado ao fazer login");

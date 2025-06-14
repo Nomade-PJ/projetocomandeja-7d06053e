@@ -7,6 +7,16 @@ export interface UserProfile extends User {
   };
 }
 
+export interface Profile {
+  id: string;
+  email: string;
+  full_name?: string;
+  phone?: string;
+  role: 'admin' | 'restaurant_owner' | 'customer';
+  avatar_url?: string;
+  registered_restaurant_id?: string;
+}
+
 export interface CartItem {
   id: string;
   name: string;

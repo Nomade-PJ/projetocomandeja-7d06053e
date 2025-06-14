@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, User, Mail, Lock, Phone } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { useLocation } from 'react-router-dom';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,6 +22,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<string>('login');
   const [loading, setLoading] = useState(false);
+  const [currentRestaurantId, setCurrentRestaurantId] = useState<string | null>(null);
+  const [currentRestaurantName, setCurrentRestaurantName] = useState<string | null>(null);
+  const location = useLocation();
   
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -31,6 +35,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPhone, setRegisterPhone] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+
+  // Obter o restaurante atual baseado na URL
+  useEffect(() => {
+    const fetchCurrentRestaurant = async () => {
+      const pathSegments = location.pathname.split('/');
+      if (pathSegments.length >= 3 && pathSegments[1] === 'restaurante') {
+        const slug = pathSegments[2];
+        
+        try {
+          const { data, error } = await supabase
+            .from('restaurants')
+            .select('id, name')
+            .eq('slug', slug)
+            .maybeSingle();
+            
+          if (error) {
+            console.error('Erro ao buscar restaurante:', error);
+            return;
+          }
+          
+          if (data) {
+            setCurrentRestaurantId(data.id);
+            setCurrentRestaurantName(data.name);
+            console.log(`Restaurante atual: ${data.name} (ID: ${data.id})`);
+          }
+        } catch (error) {
+          console.error('Erro:', error);
+        }
+      }
+    };
+    
+    fetchCurrentRestaurant();
+  }, [location.pathname]);
 
   // Função para formatar o telefone
   const formatPhoneNumber = (value: string) => {
@@ -114,13 +151,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
     
     try {
+      // Verificar se estamos em uma página de restaurante
+      if (!currentRestaurantId) {
+        toast({
+          title: "Erro no cadastro",
+          description: "É necessário se cadastrar a partir de uma página de restaurante.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 1. Criar a conta de usuário
       const { data, error } = await supabase.auth.signUp({
         email: registerEmail,
         password: registerPassword,
         options: {
           data: {
             name: registerName,
-            phone: registerPhone
+            phone: registerPhone,
+            role: 'customer', // Usar valor de texto em vez do enum para evitar o erro
+            registered_restaurant_id: currentRestaurantId
           }
         }
       });
@@ -128,10 +179,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (error) {
         throw error;
       }
+
+      // 2. Registrar o cliente na tabela customers
+      if (data.user) {
+        const { error: customerError } = await supabase
+          .from('customers')
+          .insert({
+            restaurant_id: currentRestaurantId,
+            name: registerName,
+            email: registerEmail,
+            phone: registerPhone,
+            user_id: data.user.id, // Associar ao user_id para referência futura
+            created_at: new Date().toISOString()
+          });
+
+        if (customerError) {
+          console.error('Erro ao registrar cliente:', customerError);
+          // Não vamos interromper o fluxo por causa deste erro
+        }
+      }
       
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Verifique seu e-mail para confirmar sua conta.",
+        description: `Conta criada para o restaurante ${currentRestaurantName}. Verifique seu e-mail para confirmar sua conta.`,
       });
       
       // Switch to login tab after successful registration
@@ -204,7 +274,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <Input 
                     id="password" 
                     type="password" 
-                    placeholder="********" 
+                    placeholder="••••••••" 
                     className="pl-10"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
@@ -213,31 +283,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
               
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading}
+              >
                 {loading ? "Entrando..." : "Entrar"}
               </Button>
-              
-              <div className="text-center text-sm text-gray-500">
-                <span>Não tem uma conta? </span>
-                <button 
-                  type="button" 
-                  className="text-primary hover:underline font-medium"
-                  onClick={() => setActiveTab('register')}
-                >
-                  Cadastre-se
-                </button>
-              </div>
             </form>
+            
+            {currentRestaurantName && (
+              <div className="mt-4 text-center text-sm text-gray-500">
+                <p>Você está acessando o restaurante <span className="font-semibold">{currentRestaurantName}</span></p>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="register">
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome completo</Label>
+                <Label htmlFor="register-name">Nome completo</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input 
-                    id="name" 
+                    id="register-name" 
                     type="text" 
                     placeholder="Seu nome" 
                     className="pl-10"
@@ -270,13 +339,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input 
                     id="register-phone" 
-                    type="tel" 
+                    type="text" 
                     placeholder="(00) 00000-0000" 
                     className="pl-10"
                     value={registerPhone}
                     onChange={handlePhoneChange}
                     disabled={loading}
-                    maxLength={15}
                   />
                 </div>
               </div>
@@ -288,7 +356,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <Input 
                     id="register-password" 
                     type="password" 
-                    placeholder="********" 
+                    placeholder="••••••••" 
                     className="pl-10"
                     value={registerPassword}
                     onChange={(e) => setRegisterPassword(e.target.value)}
@@ -297,27 +365,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
               
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading}
+              >
                 {loading ? "Cadastrando..." : "Cadastrar"}
               </Button>
-              
-              <div className="text-center text-sm text-gray-500">
-                <span>Já tem uma conta? </span>
-                <button 
-                  type="button" 
-                  className="text-primary hover:underline font-medium"
-                  onClick={() => setActiveTab('login')}
-                >
-                  Faça login
-                </button>
-              </div>
+
+              {currentRestaurantName && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                  <p className="text-center text-xs text-blue-700">
+                    <span className="font-semibold">Importante:</span> Ao se cadastrar através de {currentRestaurantName}, você só poderá fazer pedidos neste restaurante específico.
+                  </p>
+                </div>
+              )}
             </form>
           </TabsContent>
         </Tabs>
-        
-        <DialogDescription className="text-center text-xs text-gray-500 mt-4">
-          Ao continuar, você concorda com nossos Termos de Serviço e Política de Privacidade.
-        </DialogDescription>
       </DialogContent>
     </Dialog>
   );

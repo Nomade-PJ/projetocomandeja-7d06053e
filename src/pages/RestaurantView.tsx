@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Star, Clock, MapPin, Search, Phone, Instagram, Facebook, ChevronDown, Info, Heart, UserCircle } from "lucide-react";
+import { ShoppingCart, Star, Clock, MapPin, Search, Phone, Instagram, Facebook, ChevronDown, Info, Heart, UserCircle, Settings, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,7 +14,7 @@ import { CartDrawer } from '@/components/ui/cart-drawer';
 import { AuthModal } from '@/components/ui/auth-modal';
 import { UserMenu } from '@/components/ui/user-menu';
 import { formatCurrency } from '@/lib/utils';
-import { Restaurant, Category, Product } from '@/types';
+import { Restaurant, Category, Product, Profile } from '@/types';
 
 const RestaurantView = () => {
   const { slug } = useParams();
@@ -102,11 +102,49 @@ const RestaurantView = () => {
     navigate(`/produto/${productId}`);
   };
 
-  const handleAddToCart = (product: Product, e?: React.MouseEvent) => {
+  const handleAddToCart = async (product: Product, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation(); // Prevent card click from triggering
     }
     
+    // Se o usuário estiver logado, verificar se ele pode pedir neste restaurante
+    if (user) {
+      try {
+        // Usar any para contornar problemas de tipagem com a nova coluna
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) {
+          console.error('Erro ao buscar perfil do usuário:', error);
+          toast({
+            title: "Erro",
+            description: "Não foi possível verificar seu perfil",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Verificar se o usuário está registrado em outro restaurante
+        const registeredRestaurantId = (data as any).registered_restaurant_id;
+        
+        if (registeredRestaurantId && registeredRestaurantId !== restaurant.id) {
+          toast({
+            title: "Acesso Negado",
+            description: "Você só pode fazer pedidos no restaurante onde se cadastrou.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Erro ao verificar perfil:', error);
+        return;
+      }
+    }
+    
+    // Continuar com o processo normal se passou na verificação
     addItem({
       id: product.id,
       name: product.name,
@@ -311,14 +349,10 @@ const RestaurantView = () => {
                       <span className="text-white text-sm">Entrar</span>
                     </button>
                   ) : (
-                    <UserMenu className="bg-white/20 hover:bg-white/30 backdrop-blur-md p-1" />
+                    <>
+                      <UserMenu className="bg-white/20 hover:bg-white/30 backdrop-blur-md p-1" />
+                    </>
                   )}
-                  <button 
-                    className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md"
-                    onClick={handleToggleFavorite}
-                  >
-                    <Heart className={`w-5 h-5 ${isFavorite(restaurant.id) ? 'text-red-500 fill-red-500' : 'text-white'}`} />
-                  </button>
                   <button 
                     className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md relative"
                     onClick={() => setIsCartOpen(true)}
@@ -366,14 +400,10 @@ const RestaurantView = () => {
                       <span className="text-white text-sm">Entrar</span>
                     </button>
                   ) : (
-                    <UserMenu className="bg-white/20 hover:bg-white/30 backdrop-blur-md p-1" />
+                    <>
+                      <UserMenu className="bg-white/20 hover:bg-white/30 backdrop-blur-md p-1" />
+                    </>
                   )}
-                  <button 
-                    className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md"
-                    onClick={handleToggleFavorite}
-                  >
-                    <Heart className={`w-5 h-5 ${isFavorite(restaurant.id) ? 'text-red-500 fill-red-500' : 'text-white'}`} />
-                  </button>
                   <button 
                     className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md relative"
                     onClick={() => setIsCartOpen(true)}

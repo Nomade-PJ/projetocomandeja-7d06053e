@@ -4,18 +4,29 @@ import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, Users } from "lucide-react";
+import { Search, Filter, Users, Mail, Phone, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import FiltersModal from "@/components/dashboard/modals/FiltersModal";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCustomers } from "@/hooks/useCustomers";
 
 const DashboardCustomers = () => {
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const { customers, loading, stats, searchCustomers, formatCurrency } = useCustomers();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement search logic
-    console.log("Searching for:", searchQuery);
+    searchCustomers(searchQuery);
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-";
+    return format(new Date(dateString), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   };
 
   return (
@@ -45,6 +56,9 @@ const DashboardCustomers = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
+                <Button type="submit">
+                  Buscar
+                </Button>
                 <Button 
                   type="button" 
                   variant="outline"
@@ -61,8 +75,14 @@ const DashboardCustomers = () => {
                     <CardTitle className="text-lg">Total de Clientes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">0</div>
+                    {loading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold">{stats.total}</div>
                     <p className="text-xs text-muted-foreground">clientes registrados</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -71,8 +91,14 @@ const DashboardCustomers = () => {
                     <CardTitle className="text-lg">Novos Este Mês</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">0</div>
+                    {loading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold">{stats.newThisMonth}</div>
                     <p className="text-xs text-muted-foreground">novos clientes</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -81,8 +107,14 @@ const DashboardCustomers = () => {
                     <CardTitle className="text-lg">Ticket Médio</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">R$ 0,00</div>
+                    {loading ? (
+                      <Skeleton className="h-8 w-24" />
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold">{formatCurrency(stats.averageTicket)}</div>
                     <p className="text-xs text-muted-foreground">valor médio por pedido</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -91,8 +123,16 @@ const DashboardCustomers = () => {
                     <CardTitle className="text-lg">Cliente Fiel</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">-</div>
-                    <p className="text-xs text-muted-foreground">nenhum cliente</p>
+                    {loading ? (
+                      <Skeleton className="h-8 w-24" />
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold">{stats.mostLoyal ? stats.mostLoyal.name.split(' ')[0] : '-'}</div>
+                        <p className="text-xs text-muted-foreground">
+                          {stats.mostLoyal ? `${stats.mostLoyal.total_orders} pedidos` : 'nenhum cliente'}
+                        </p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -105,11 +145,66 @@ const DashboardCustomers = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {loading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  ) : customers.length > 0 ? (
+                    <div className="rounded-md border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>Contato</TableHead>
+                            <TableHead>Data de cadastro</TableHead>
+                            <TableHead>Pedidos</TableHead>
+                            <TableHead>Gasto total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {customers.map((customer) => (
+                            <TableRow key={customer.id}>
+                              <TableCell className="font-medium">
+                                {customer.name}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <Mail className="w-3 h-3 mr-1" />
+                                    {customer.email || '-'}
+                                  </div>
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <Phone className="w-3 h-3 mr-1" />
+                                    {customer.phone || '-'}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center text-sm">
+                                  <Calendar className="w-3 h-3 mr-1 text-gray-500" />
+                                  {formatDate(customer.created_at)}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={customer.total_orders > 0 ? "default" : "secondary"}>
+                                  {customer.total_orders || 0}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{formatCurrency(customer.total_spent || 0)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
                   <div className="text-center py-12">
                     <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500 text-lg">Nenhum cliente encontrado</p>
                     <p className="text-gray-400 text-sm mt-2">Os clientes aparecerão aqui quando fizerem pedidos</p>
                   </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -18,6 +18,9 @@ import DashboardReviews from "./pages/DashboardReviews";
 import DashboardSettings from "./pages/DashboardSettings";
 import RestaurantView from "./pages/RestaurantView";
 import ProductDetails from "./pages/ProductDetails";
+import CustomerSettings from "./pages/CustomerSettings";
+import Checkout from "./pages/Checkout";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 import { supabase } from "./integrations/supabase/client";
@@ -101,6 +104,25 @@ const App = () => {
                 {/* Rotas públicas */}
                 <Route path="/restaurante/:slug" element={<RestaurantView />} />
                 <Route path="/produto/:productId" element={<ProductDetails />} />
+                <Route path="/checkout" element={
+                  <ProtectedRoute>
+                    <Checkout />
+                  </ProtectedRoute>
+                } />
+                <Route path="/pedido-confirmado" element={<OrderConfirmation />} />
+                <Route path="/configuracoes" element={
+                  <ProtectedRoute>
+                    <CustomerSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/perfil" element={
+                  <ProtectedRoute>
+                    <CustomerSettings />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Nova rota específica para perfil do cliente */}
+                <Route path="/cliente/perfil" element={<CustomerSettings />} />
                 
                 {/* Rota de fallback */}
                 <Route path="*" element={<NotFound />} />

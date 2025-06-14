@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ interface UserMenuProps {
 
 export function UserMenu({ className }: UserMenuProps) {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   if (!user) {
     return null;
@@ -36,6 +37,10 @@ export function UserMenu({ className }: UserMenuProps) {
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleProfileClick = () => {
+    window.open('/perfil?direct=true', '_blank');
   };
 
   return (
@@ -58,29 +63,9 @@ export function UserMenu({ className }: UserMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/perfil" className="flex items-center cursor-pointer">
-            <User className="mr-2 h-4 w-4" />
-            <span>Meu Perfil</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/pedidos" className="flex items-center cursor-pointer">
-            <ShoppingBag className="mr-2 h-4 w-4" />
-            <span>Meus Pedidos</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/favoritos" className="flex items-center cursor-pointer">
-            <Heart className="mr-2 h-4 w-4" />
-            <span>Favoritos</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/configuracoes" className="flex items-center cursor-pointer">
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Configurações</span>
-          </Link>
+        <DropdownMenuItem onClick={handleProfileClick} className="flex items-center cursor-pointer">
+          <User className="mr-2 h-4 w-4" />
+          <span>Meu Perfil</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} className="text-red-500 focus:text-red-500 cursor-pointer">
