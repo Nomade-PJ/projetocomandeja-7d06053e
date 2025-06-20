@@ -9,6 +9,67 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cart_items: {
+        Row: {
+          id: string
+          user_id: string
+          restaurant_id: string
+          product_id: string
+          product_name: string
+          price: number
+          quantity: number
+          image_url: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          restaurant_id: string
+          product_id: string
+          product_name: string
+          price: number
+          quantity: number
+          image_url?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          restaurant_id?: string
+          product_id?: string
+          product_name?: string
+          price?: number
+          quantity?: number
+          image_url?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -127,6 +188,7 @@ export type Database = {
           total_spent: number | null
           updated_at: string | null
           zip_code: string | null
+          user_id: string | null
         }
         Insert: {
           address?: string | null
@@ -145,6 +207,7 @@ export type Database = {
           total_spent?: number | null
           updated_at?: string | null
           zip_code?: string | null
+          user_id?: string | null
         }
         Update: {
           address?: string | null
@@ -163,6 +226,7 @@ export type Database = {
           total_spent?: number | null
           updated_at?: string | null
           zip_code?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -172,6 +236,13 @@ export type Database = {
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
         ]
       }
       dashboard_statistics: {

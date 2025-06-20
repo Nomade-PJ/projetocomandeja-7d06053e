@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Restaurant {
   id: string;
@@ -31,12 +31,15 @@ export const useRestaurant = () => {
 
   const fetchRestaurant = async () => {
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         setLoading(false);
         return;
       }
+
+      console.log('Buscando restaurante para usuário:', user.id);
 
       const { data, error } = await supabase
         .from('restaurants')
@@ -52,6 +55,7 @@ export const useRestaurant = () => {
           variant: "destructive"
         });
       } else {
+        console.log('Restaurante encontrado:', data);
         setRestaurant(data);
       }
     } catch (error) {

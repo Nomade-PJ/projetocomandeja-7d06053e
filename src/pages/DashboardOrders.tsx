@@ -1,26 +1,41 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NewOrderModal from "@/components/dashboard/modals/NewOrderModal";
 import FiltersModal from "@/components/dashboard/modals/FiltersModal";
+import { useOrders } from "@/hooks/useOrders";
+import OrdersTable from "@/components/dashboard/tables/OrdersTable";
 
 const DashboardOrders = () => {
+  // Estados
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  
+  // Hook de pedidos
+  const { orders, loading, fetchOrders, createOrder, updateOrderStatus } = useOrders();
 
+  // Buscar pedidos ao iniciar ou quando os filtros mudarem
+  useEffect(() => {
+    fetchOrders({ status: statusFilter, search: searchQuery });
+  }, [fetchOrders, statusFilter]);
+
+  // Função para lidar com a busca
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement search logic
-    console.log("Searching for:", searchQuery);
+    fetchOrders({ status: statusFilter, search: searchQuery });
+  };
+
+  // Função para aplicar filtros
+  const handleApplyFilters = (filters: { status?: string }) => {
+    setStatusFilter(filters.status);
+    fetchOrders({ status: filters.status, search: searchQuery });
   };
 
   return (
@@ -51,7 +66,7 @@ const DashboardOrders = () => {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Buscar pedidos..."
+                    placeholder="Buscar pedidos por número ou cliente..."
                     className="pl-10"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -65,6 +80,7 @@ const DashboardOrders = () => {
                   <Filter className="w-4 h-4 mr-2" />
                   Filtros
                 </Button>
+                <Button type="submit">Buscar</Button>
               </form>
 
               <Card>
@@ -72,20 +88,30 @@ const DashboardOrders = () => {
                   <CardTitle>Lista de Pedidos</CardTitle>
                   <CardDescription>
                     Acompanhe o status dos seus pedidos em tempo real
+                    {statusFilter && (
+                      <span className="ml-2 inline-block">
+                        (Filtro: {statusFilter === 'pending' ? 'Pendentes' : 
+                                  statusFilter === 'confirmed' ? 'Confirmados' : 
+                                  statusFilter === 'preparing' ? 'Em preparo' : 
+                                  statusFilter === 'ready' ? 'Prontos' : 
+                                  statusFilter === 'out_for_delivery' ? 'Em rota' : 
+                                  statusFilter === 'delivered' ? 'Entregues' : 
+                                  statusFilter === 'cancelled' ? 'Cancelados' : statusFilter})
+                      </span>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 text-lg">Nenhum pedido encontrado</p>
-                    <p className="text-gray-400 text-sm mt-2">Os pedidos aparecerão aqui quando forem realizados</p>
-                    <Button 
-                      className="mt-4 bg-gradient-brand hover:from-brand-700 hover:to-brand-600 text-white"
-                      onClick={() => setShowNewOrderModal(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Criar Primeiro Pedido
-                    </Button>
-                  </div>
+                  {loading ? (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500 text-lg">Carregando pedidos...</p>
+                    </div>
+                  ) : (
+                    <OrdersTable 
+                      orders={orders} 
+                      onUpdateStatus={updateOrderStatus} 
+                    />
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -96,11 +122,14 @@ const DashboardOrders = () => {
       <NewOrderModal 
         open={showNewOrderModal} 
         onOpenChange={setShowNewOrderModal} 
+        onCreateOrder={createOrder}
       />
       <FiltersModal 
         open={showFiltersModal} 
         onOpenChange={setShowFiltersModal}
         type="orders"
+        onApplyFilters={handleApplyFilters}
+        initialFilters={{ status: statusFilter }}
       />
     </SidebarProvider>
   );

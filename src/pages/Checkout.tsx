@@ -13,7 +13,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { formatCurrency } from '@/lib/utils';
-import { ArrowLeft, CreditCard, MapPin, Clock, Loader2, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, MapPin, Clock, Loader2, Search, Receipt, ShoppingBag } from 'lucide-react';
+import { CheckoutStepper, CheckoutStep } from '@/components/ui/checkout-stepper';
+import { OrderReceipt, OrderItem } from '@/components/ui/order-receipt';
+import { useCustomer } from '@/hooks/useCustomer';
+import { Database } from '@/integrations/supabase/types';
+import { updateDashboardStatistics, fixDashboardStatsForOrder } from '@/services/dashboardService';
 
 // Definir tipos para os dados
 interface CustomerWithDetails {
@@ -24,8 +29,11 @@ interface CustomerWithDetails {
   [key: string]: any;
 }
 
-type DeliveryMethod = "delivery" | "pickup";
-type PaymentMethod = "credit_card" | "debit_card" | "pix" | "cash" | "voucher";
+// Definir tipos usando tipos do Supabase
+type PaymentMethod = 'credit_card' | 'debit_card' | 'pix' | 'cash' | 'voucher';
+type DeliveryMethod = 'delivery' | 'pickup';
+type OrderStatus = Database['public']['Enums']['order_status'];
+type PaymentStatus = Database['public']['Enums']['payment_status'];
 
 // Interface para os dados retornados pela API do ViaCEP
 interface ViaCepResponse {
@@ -46,6 +54,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { items, getTotal, clearCart } = useCart();
   const { user } = useAuth();
+  const { getOrCreateCustomer } = useCustomer();
   const [isLoading, setIsLoading] = useState(false);
   const [isCepLoading, setIsCepLoading] = useState(false);
   const [customerData, setCustomerData] = useState({
@@ -66,6 +75,17 @@ const Checkout = () => {
   });
   const [notes, setNotes] = useState('');
   const [restaurantData, setRestaurantData] = useState<any>(null);
+  const [orderNumber, setOrderNumber] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [orderComplete, setOrderComplete] = useState(false);
+
+  // Define as etapas do checkout
+  const steps: CheckoutStep[] = [
+    { id: 1, name: 'Carrinho', status: currentStep === 1 ? 'current' : currentStep > 1 ? 'complete' : 'upcoming' },
+    { id: 2, name: 'Entrega', status: currentStep === 2 ? 'current' : currentStep > 2 ? 'complete' : 'upcoming' },
+    { id: 3, name: 'Pagamento', status: currentStep === 3 ? 'current' : currentStep > 3 ? 'complete' : 'upcoming' },
+    { id: 4, name: 'Confirmação', status: currentStep === 4 ? 'current' : currentStep > 4 ? 'complete' : 'upcoming' },
+  ];
 
   // Agrupar itens por restaurante
   const itemsByRestaurant: Record<string, any[]> = items.reduce((acc, item) => {
@@ -75,6 +95,49 @@ const Checkout = () => {
     acc[item.restaurant_id].push(item);
     return acc;
   }, {} as Record<string, any[]>);
+
+  // Função para buscar dados do restaurante
+  const fetchRestaurantData = async (restaurantId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('*')
+        .eq('id', restaurantId)
+        .single();
+        
+      if (error) {
+        console.error('Erro ao buscar dados do restaurante:', error);
+        return;
+      }
+      
+      if (data) {
+        setRestaurantData(data);
+        
+        // Preenche os dados iniciais do usuário com base no perfil atual
+        if (user) {
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('full_name, phone')
+              .eq('id', user.id)
+              .single();
+              
+            if (profileData) {
+              setCustomerData({
+                name: profileData.full_name || '',
+                email: user.email || '',
+                phone: profileData.phone || ''
+              });
+            }
+          } catch (err) {
+            console.error('Erro ao carregar perfil:', err);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados do restaurante:', error);
+    }
+  };
 
   // Verificar se o carrinho está vazio ou se o usuário está logado
   useEffect(() => {
@@ -88,83 +151,12 @@ const Checkout = () => {
       return;
     }
 
-    // Carregar dados do usuário
-    const fetchUserData = async () => {
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Erro ao buscar perfil:', profileError);
-          return;
-        }
-
-        if (profileData) {
-          setCustomerData({
-            name: profileData.full_name || '',
-            email: user.email || '',
-            phone: profileData.phone || ''
-          });
-        }
-
-        // Buscar dados do cliente para preencher endereço
-        const { data, error: customerError } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-
-        if (!customerError && data) {
-          // Se tiver endereço salvo, preencher
-          if (data.address) {
-            setAddress({
-              street: data.address || '',
-              number: '',
-              complement: '',
-              neighborhood: '',
-              city: data.city || '',
-              state: data.state || '',
-              zipCode: data.zip_code || ''
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao buscar dados do usuário:', error);
-      }
-    };
-
-    // Buscar dados do restaurante
-    const fetchRestaurantData = async () => {
-      if (Object.keys(itemsByRestaurant).length > 0) {
-        const restaurantId = Object.keys(itemsByRestaurant)[0];
-        
-        try {
-          const { data, error } = await supabase
-            .from('restaurants')
-            .select('*')
-            .eq('id', restaurantId)
-            .single();
-            
-          if (error) {
-            console.error('Erro ao buscar dados do restaurante:', error);
-            return;
-          }
-          
-          if (data) {
-            setRestaurantData(data);
-          }
-        } catch (error) {
-          console.error('Erro ao buscar dados do restaurante:', error);
-        }
-      }
-    };
-
-    fetchUserData();
-    fetchRestaurantData();
-  }, [user, items, navigate]);
+    // Carregar dados do restaurante a partir do primeiro item do carrinho
+    if (items.length > 0) {
+      const restaurantId = items[0].restaurant_id;
+      fetchRestaurantData(restaurantId);
+    }
+  }, [items, user, navigate]);
 
   // Função para buscar endereço pelo CEP
   const fetchAddressByCep = async (cep: string) => {
@@ -232,9 +224,58 @@ const Checkout = () => {
     }
   };
 
-  const handleSubmitOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  // Função para continuar para a próxima etapa
+  const handleNextStep = () => {
+    // Validar campos antes de prosseguir
+    if (currentStep === 1) {
+      // Validar carrinho
+      if (items.length === 0) {
+        toast({
+          title: "Carrinho vazio",
+          description: "Adicione produtos ao carrinho para finalizar o pedido",
+          variant: "destructive",
+        });
+        return;
+      }
+      setCurrentStep(2);
+    } 
+    else if (currentStep === 2) {
+      // Validar endereço se for entrega
+      if (deliveryMethod === 'delivery') {
+        if (!address.street || !address.number || !address.neighborhood || !address.city || !address.state) {
+          toast({
+            title: "Endereço incompleto",
+            description: "Preencha todos os campos obrigatórios do endereço",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      setCurrentStep(3);
+    }
+    else if (currentStep === 3) {
+      // Validar método de pagamento
+      if (!paymentMethod) {
+        toast({
+          title: "Selecione um método de pagamento",
+          description: "É necessário escolher uma forma de pagamento",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Avançar para revisão do pedido
+      setCurrentStep(4);
+    }
+  };
+
+  // Função para voltar à etapa anterior
+  const handlePreviousStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSubmitOrder = async () => {
     if (!user) {
       toast({
         title: "Erro",
@@ -253,49 +294,29 @@ const Checkout = () => {
       return;
     }
 
-    // Validar endereço se for entrega
-    if (deliveryMethod === 'delivery') {
-      if (!address.street || !address.number || !address.neighborhood || !address.city || !address.state) {
-        toast({
-          title: "Endereço incompleto",
-          description: "Preencha todos os campos obrigatórios do endereço",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
     setIsLoading(true);
     
     try {
       // Obter o restaurante do primeiro item (assumimos que todos os itens são do mesmo restaurante)
       const restaurantId = items[0].restaurant_id;
       
-      // Buscar o customer_id usando uma consulta mais simples
-      let customerId: string | null = null;
-      let customerName: string | null = null;
-      let customerPhone: string | null = null;
+      console.log('Iniciando checkout para o restaurante:', restaurantId);
       
-      try {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('id, name, phone')
-          .eq('user_id', user.id)
-          .eq('restaurant_id', restaurantId)
-          .single();
-          
-        if (!error && data) {
-          customerId = data.id;
-          customerName = data.name;
-          customerPhone = data.phone;
-        }
-      } catch (error) {
-        console.error('Erro ao buscar cliente:', error);
+      // Usar o hook para buscar ou criar o cliente automaticamente
+      const customer = await getOrCreateCustomer(restaurantId);
+      
+      if (!customer) {
+        console.error('Falha ao obter ou criar cliente');
+        toast({
+          title: "Erro no perfil",
+          description: "Não foi possível identificar ou criar um cliente para este pedido",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
       }
       
-      if (!customerId) {
-        throw new Error('ID do cliente não encontrado');
-      }
+      console.log('Cliente para o pedido:', customer);
       
       // Calcular valores
       const subtotal = getTotal();
@@ -303,78 +324,131 @@ const Checkout = () => {
       const total = subtotal + deliveryFee;
       
       // Gerar número do pedido
-      const orderNumber = `${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000)}`;
+      const timestamp = new Date().getTime().toString().slice(-6);
+      const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const generatedOrderNumber = timestamp + randomNum;
       
-      // Criar pedido
-      const { data: newOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          customer_id: customerId,
-          restaurant_id: restaurantId,
-          order_number: orderNumber,
-          status: 'pending',
-          subtotal: subtotal,
-          delivery_fee: deliveryFee,
-          total: total,
-          payment_method: paymentMethod,
-          payment_status: 'pending',
-          delivery_method: deliveryMethod,
-          delivery_address: deliveryMethod === 'delivery' ? `${address.street}, ${address.number}` : null,
-          delivery_city: deliveryMethod === 'delivery' ? address.city : null,
-          delivery_state: deliveryMethod === 'delivery' ? address.state : null,
-          delivery_zip_code: deliveryMethod === 'delivery' ? address.zipCode : null,
-          customer_name: customerName || customerData.name,
-          customer_phone: customerPhone || customerData.phone,
-          customer_email: user.email || '',
-          notes: notes,
-        })
-        .select('id')
-        .single();
+      console.log('Criando pedido com número:', generatedOrderNumber);
+      
+      // Dados do pedido com tipagem correta para a tabela orders
+      const orderData: Database['public']['Tables']['orders']['Insert'] = {
+        customer_id: customer.id,
+        restaurant_id: restaurantId,
+        order_number: generatedOrderNumber,
+        status: 'pending',
+        subtotal: subtotal,
+        delivery_fee: deliveryFee,
+        total: total,
+        payment_method: paymentMethod,
+        payment_status: 'pending',
+        delivery_method: deliveryMethod,
+        delivery_address: deliveryMethod === 'delivery' ? `${address.street}, ${address.number}` : null,
+        delivery_city: deliveryMethod === 'delivery' ? address.city : null,
+        delivery_state: deliveryMethod === 'delivery' ? address.state : null,
+        delivery_zip_code: deliveryMethod === 'delivery' ? address.zipCode : null,
+        customer_name: customerData.name,
+        customer_phone: customerData.phone || '',
+        customer_email: customerData.email || '',
+        notes: notes || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Dados do pedido:', orderData);
+      
+      // Criar o pedido com tratamento de erros adicional
+      let order;
+      try {
+        const { data: newOrder, error: orderError } = await supabase
+          .from('orders')
+          .insert(orderData)
+          .select()
+          .single();
         
-      if (orderError) {
-        console.error('Erro ao criar pedido:', orderError);
-        throw new Error('Não foi possível criar o pedido');
-      }
-      
-      const orderId = newOrder.id;
-      
-      // Adicionar itens ao pedido
-      for (const item of items) {
-        const { error: itemError } = await supabase
-          .from('order_items')
-          .insert({
-            order_id: orderId,
-            product_id: item.id,
-            product_name: item.name,
-            product_price: item.price,
-            quantity: item.quantity,
-            unit_price: item.price,
-            total_price: item.price * item.quantity,
-            notes: ''
-          });
+        if (orderError) {
+          console.error('Erro ao criar pedido:', orderError);
+          throw new Error(orderError.message || 'Erro ao criar pedido');
+        }
+        
+        order = newOrder;
+        console.log('Pedido criado com ID:', order.id);
+      } catch (orderError: any) {
+        // Verificar se o erro está relacionado ao dashboard_statistics
+        if (orderError.message && orderError.message.includes('dashboard_statistics')) {
+          console.warn('Aviso: Erro na atualização das estatísticas, mas o pedido pode ter sido criado com sucesso.');
           
-        if (itemError) {
-          console.error('Erro ao adicionar item ao pedido:', itemError);
-          // Continuar mesmo com erro para tentar adicionar os outros itens
+          // Tentar recuperar o pedido recém-criado pelo número
+          const { data: retrievedOrder } = await supabase
+            .from('orders')
+            .select()
+            .eq('order_number', generatedOrderNumber)
+            .single();
+            
+          if (retrievedOrder) {
+            order = retrievedOrder;
+            console.log('Pedido recuperado pelo número:', order.id);
+            
+            // Tentar atualizar manualmente as estatísticas para resolver o problema
+            try {
+              console.log('Tentando atualizar manualmente as estatísticas para o pedido:', order.id);
+              const result = await fixDashboardStatsForOrder(order.id);
+              console.log('Resultado da atualização manual das estatísticas:', result);
+              
+              // Se a função específica falhar, tentar o método alternativo
+              if (!result.success) {
+                console.log('Tentando método alternativo de atualização com restaurante:', restaurantId);
+                const altResult = await updateDashboardStatistics(restaurantId);
+                console.log('Resultado do método alternativo:', altResult);
+              }
+            } catch (statsError) {
+              console.error('Erro ao tentar atualizar manualmente as estatísticas:', statsError);
+              // Continuar mesmo se falhar a atualização manual
+            }
+          } else {
+            // Se não conseguir recuperar o pedido, propague o erro original
+            throw orderError;
+          }
+        } else {
+          // Se não for relacionado a dashboard_statistics, propague o erro
+          throw orderError;
         }
       }
       
-      // Limpar o carrinho após finalizar o pedido
+      if (!order) {
+        throw new Error('Falha ao criar ou recuperar o pedido');
+      }
+      
+      // Criar itens do pedido
+      const orderItems = items.map(item => ({
+        order_id: order.id,
+        product_id: item.id,
+        product_name: item.name,
+        product_price: item.price,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        notes: ''
+      }));
+      
+      console.log('Itens do pedido:', orderItems);
+      
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+      
+      if (itemsError) {
+        console.error('Erro ao criar itens do pedido:', itemsError);
+        throw new Error(itemsError.message || 'Erro ao criar itens do pedido');
+      }
+      
+      // Limpar o carrinho e redirecionar para página de confirmação
       clearCart();
-      
-      // Mostrar mensagem de sucesso
-      toast({
-        title: "Pedido realizado com sucesso!",
-        description: `Seu pedido #${orderNumber} foi enviado ao restaurante.`,
-      });
-      
-      // Redirecionar para página de confirmação
-      navigate('/pedido-confirmado');
+      navigate(`/pedido-confirmado?orderNumber=${generatedOrderNumber}`);
     } catch (error: any) {
       console.error('Erro ao finalizar pedido:', error);
       toast({
         title: "Erro ao finalizar pedido",
-        description: error.message || "Ocorreu um erro ao processar seu pedido",
+        description: error.message || "Não foi possível criar o pedido",
         variant: "destructive",
       });
     } finally {
@@ -397,17 +471,65 @@ const Checkout = () => {
           <h1 className="text-2xl font-bold">Finalizar Pedido</h1>
         </div>
 
+        {/* Stepper */}
+        <CheckoutStepper steps={steps} currentStep={currentStep} />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Formulário de checkout */}
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmitOrder} className="space-y-6">
-              {/* Método de entrega */}
+            {/* Etapa 1: Revisão do Carrinho */}
+            {currentStep === 1 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <ShoppingBag className="h-5 w-5 mr-2" />
+                    Seu pedido
+                  </CardTitle>
+                  <CardDescription>
+                    Revise os itens do seu pedido antes de prosseguir
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {items.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center border-b pb-3">
+                        <div>
+                          <div className="font-medium">{item.quantity}x {item.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {item.name}
+                          </div>
+                        </div>
+                        <div className="font-medium">{formatCurrency(item.price * item.quantity)}</div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-between font-medium">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(getTotal())}</span>
+                  </div>
+                  
+                  <div className="flex justify-end mt-6">
+                    <Button onClick={handleNextStep}>
+                      Prosseguir com a entrega
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Etapa 2: Método de entrega */}
+            {currentStep === 2 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <MapPin className="h-5 w-5 mr-2" />
                     Método de entrega
                   </CardTitle>
+                  <CardDescription>
+                    Selecione como deseja receber seu pedido
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <RadioGroup 
@@ -552,16 +674,32 @@ const Checkout = () => {
                       </div>
                     </div>
                   )}
+                  
+                  <div className="flex justify-between mt-6">
+                    <Button variant="outline" onClick={handlePreviousStep}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Voltar para o carrinho
+                    </Button>
+                    <Button onClick={handleNextStep}>
+                      Escolher forma de pagamento
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-
-              {/* Método de pagamento */}
+            )}
+            
+            {/* Etapa 3: Método de pagamento */}
+            {currentStep === 3 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <CreditCard className="h-5 w-5 mr-2" />
                     Método de pagamento
                   </CardTitle>
+                  <CardDescription>
+                    Selecione como deseja pagar seu pedido
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <RadioGroup 
@@ -585,17 +723,14 @@ const Checkout = () => {
                       <RadioGroupItem value="cash" id="cash" />
                       <Label htmlFor="cash" className="font-medium">Dinheiro</Label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="voucher" id="voucher" />
+                      <Label htmlFor="voucher" className="font-medium">Vale-refeição</Label>
+                    </div>
                   </RadioGroup>
-                </CardContent>
-              </Card>
-
-              {/* Observações */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Observações</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
+                  
+                  {/* Observações */}
+                  <div className="space-y-2 mt-6 pt-6 border-t">
                     <Label htmlFor="notes">Alguma observação para o restaurante?</Label>
                     <Textarea 
                       id="notes" 
@@ -604,22 +739,120 @@ const Checkout = () => {
                       placeholder="Ex: Sem cebola, troco para R$ 50,00, etc."
                     />
                   </div>
+                  
+                  <div className="flex justify-between mt-6">
+                    <Button variant="outline" onClick={handlePreviousStep}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Voltar para a entrega
+                    </Button>
+                    <Button onClick={handleNextStep}>
+                      Revisar e finalizar
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
+            )}
+            
+            {/* Etapa 4: Confirmação */}
+            {currentStep === 4 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Receipt className="h-5 w-5 mr-2" />
+                    Revisar e finalizar
+                  </CardTitle>
+                  <CardDescription>
+                    Confira os detalhes do seu pedido antes de finalizar
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Resumo das etapas anteriores */}
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Método de entrega:</h3>
+                      <p>{deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada no local'}</p>
+                      {deliveryMethod === 'delivery' && address.street && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          {address.street}, {address.number}, {address.neighborhood}, {address.city}/{address.state}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Método de pagamento:</h3>
+                      <p>
+                        {paymentMethod === 'credit_card' ? 'Cartão de crédito' : 
+                         paymentMethod === 'debit_card' ? 'Cartão de débito' : 
+                         paymentMethod === 'pix' ? 'PIX' : 
+                         paymentMethod === 'cash' ? 'Dinheiro' : 'Vale-refeição'}
+                      </p>
+                    </div>
+                    
+                    {notes && (
+                      <>
+                        <Separator />
+                        <div>
+                          <h3 className="text-sm font-medium mb-2">Observações:</h3>
+                          <p className="text-sm text-gray-500">{notes}</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
 
-              <div className="lg:hidden">
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Processando..." : "Finalizar pedido"}
-                </Button>
+                  <div className="flex justify-between mt-6">
+                    <Button variant="outline" onClick={handlePreviousStep}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Voltar para o pagamento
+                    </Button>
+                    <Button 
+                      onClick={handleSubmitOrder}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processando...
+                        </>
+                      ) : (
+                        <>
+                          Finalizar pedido
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Nota fiscal após confirmação */}
+            {orderComplete && (
+              <div className="mt-6">
+                <OrderReceipt
+                  orderNumber={orderNumber}
+                  items={items.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price
+                  }) as OrderItem)}
+                  customerName={customerData.name}
+                  deliveryAddress={deliveryMethod === 'delivery' ? `${address.street}, ${address.number}, ${address.neighborhood}, ${address.city}/${address.state}` : undefined}
+                  deliveryMethod={deliveryMethod}
+                  paymentMethod={paymentMethod}
+                  subtotal={getTotal()}
+                  deliveryFee={deliveryMethod === 'delivery' && restaurantData ? (restaurantData.delivery_fee || 0) : 0}
+                  total={getTotal() + (deliveryMethod === 'delivery' && restaurantData ? (restaurantData.delivery_fee || 0) : 0)}
+                  restaurantName={restaurantData?.name || 'Restaurante'}
+                  orderDate={new Date()}
+                />
               </div>
-            </form>
+            )}
           </div>
 
-          {/* Resumo do pedido */}
+          {/* Resumo do pedido (sempre visível) */}
           <div className="lg:col-span-1">
             <div className="sticky top-6">
               <Card>
@@ -667,17 +900,6 @@ const Checkout = () => {
                         ))}
                       </span>
                     </div>
-                  </div>
-                  
-                  <div className="hidden lg:block pt-4">
-                    <Button 
-                      type="submit"
-                      onClick={handleSubmitOrder}
-                      className="w-full"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Processando..." : "Finalizar pedido"}
-                    </Button>
                   </div>
                 </CardContent>
               </Card>

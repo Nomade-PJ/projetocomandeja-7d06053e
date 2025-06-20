@@ -81,10 +81,42 @@ const CustomerSettings = () => {
 
       if (profileResult.error) {
         console.error('Erro ao buscar perfil:', profileResult.error);
-        throw profileResult.error;
+        
+        // Verificar se o erro é porque o perfil não existe
+        if (profileResult.error.code === 'PGRST116') {
+          console.log('Perfil não encontrado, criando novo perfil para o usuário');
+          
+          // Criar um novo perfil para o usuário
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: user.id,
+                full_name: user.user_metadata?.name || '',
+                email: user.email,
+                role: user.user_metadata?.role || 'customer',
+                updated_at: new Date().toISOString(),
+              }
+            ])
+            .select('*')
+            .single();
+            
+          if (createError) {
+            console.error('Erro ao criar novo perfil:', createError);
+            throw createError;
+          }
+          
+          console.log('Novo perfil criado com sucesso:', newProfile);
+          
+          // Use o novo perfil
+          profileResult.data = newProfile;
+        } else {
+          // Se for outro tipo de erro, lançar para o catch
+          throw profileResult.error;
+        }
+      } else {
+        console.log('Perfil encontrado:', profileResult.data);
       }
-
-      console.log('Perfil encontrado:', profileResult.data);
 
       // Buscar dados do cliente
       console.log('Buscando dados de cliente para user_id:', user.id);
@@ -99,19 +131,23 @@ const CustomerSettings = () => {
         customerData = customerResult.data;
         console.log('Dados de cliente encontrados:', customerData);
       } else {
-        console.log('Cliente não encontrado pelo user_id, tentando buscar pelo email');
+        console.log('Cliente não encontrado pelo user_id, tentando buscar pelo email', customerResult.error);
         // Tentar buscar pelo email
-        const emailResult = await supabase
-          .from('customers')
-          .select('*')
-          .eq('email', user.email)
-          .single();
-          
-        if (!emailResult.error) {
-          customerData = emailResult.data;
-          console.log('Dados de cliente encontrados pelo email:', customerData);
+        if (user.email) {
+          const emailResult = await supabase
+            .from('customers')
+            .select('*')
+            .eq('email', user.email)
+            .single();
+            
+          if (!emailResult.error) {
+            customerData = emailResult.data;
+            console.log('Dados de cliente encontrados pelo email:', customerData);
+          } else {
+            console.log('Nenhum dado de cliente encontrado pelo email:', emailResult.error);
+          }
         } else {
-          console.log('Nenhum dado de cliente encontrado');
+          console.log('Email de usuário não disponível para busca alternativa');
         }
       }
 
@@ -139,7 +175,7 @@ const CustomerSettings = () => {
       console.error('Erro ao carregar perfil:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar seu perfil',
+        description: 'Não foi possível carregar seu perfil. Por favor, tente novamente mais tarde.',
         variant: 'destructive',
       });
     } finally {

@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthModal } from './auth-modal';
 import { toast } from '@/components/ui/use-toast';
+import { useCustomer } from '@/hooks/useCustomer';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { items, removeItem, updateQuantity, getTotal, clearCart } = useCart();
   const { user } = useAuth();
+  const { getOrCreateCustomer } = useCustomer();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -31,59 +33,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   }, {} as Record<string, CartItem[]>);
 
   const handleCheckout = async () => {
-    // Se não estiver logado, mostrar modal de autenticação
+    // Se não houver itens no carrinho, não prosseguir com o checkout
+    if (items.length === 0) {
+      toast({
+        title: "Carrinho vazio",
+        description: "Adicione algum item ao carrinho para prosseguir",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Se o usuário não estiver logado, mostrar o modal de autenticação
     if (!user) {
       setIsAuthModalOpen(true);
       return;
     }
 
     setIsProcessing(true);
-    
+
     try {
-      // Verificar se o usuário pode fazer pedido neste restaurante
-      // Assumimos que o primeiro restaurante no carrinho é o restaurante atual
-      if (Object.keys(itemsByRestaurant).length > 0) {
-        const currentRestaurantId = Object.keys(itemsByRestaurant)[0];
-        
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-          
-        if (error) {
-          console.error('Erro ao buscar perfil do usuário:', error);
-          toast({
-            title: "Erro",
-            description: "Não foi possível verificar seu perfil",
-            variant: "destructive",
-          });
-          setIsProcessing(false);
-          return;
-        }
-        
-        // Verificar se o usuário está registrado em outro restaurante
-        const registeredRestaurantId = (data as any).registered_restaurant_id;
-        
-        if (registeredRestaurantId && registeredRestaurantId !== currentRestaurantId) {
-          toast({
-            title: "Acesso Negado",
-            description: "Você só pode fazer pedidos no restaurante onde se cadastrou.",
-            variant: "destructive",
-          });
-          setIsProcessing(false);
-          return;
-        }
-        
-        // Redirecionar para a página de checkout
-        onClose(); // Fechar o drawer
-        navigate('/checkout'); // Navegar para a página de checkout
-      }
+      // Navegar direto para a página de checkout
+      // O restaurante será extraído do primeiro item do carrinho
+      navigate('/checkout');
     } catch (error) {
-      console.error('Erro ao processar checkout:', error);
+      console.error('Erro ao iniciar checkout:', error);
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao processar seu pedido",
+        description: "Ocorreu um erro ao iniciar o checkout",
         variant: "destructive",
       });
     } finally {

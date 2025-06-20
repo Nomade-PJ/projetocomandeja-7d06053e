@@ -10,6 +10,7 @@ import { useRestaurant } from "@/hooks/useRestaurant";
 import { useEffect } from "react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { formatCurrency } from "@/lib/utils";
+import { realtimeService } from "@/integrations/supabase/realtimeService";
 
 interface DashboardOverviewProps {
   onRealtimeError?: () => void;
@@ -18,6 +19,19 @@ interface DashboardOverviewProps {
 const DashboardOverview = ({ onRealtimeError }: DashboardOverviewProps) => {
   const { restaurant, loading } = useRestaurant();
   const { loading: statsLoading, stats } = useDashboardStats();
+
+  // Registrar handler de erro para o serviço de realtime
+  useEffect(() => {
+    if (onRealtimeError) {
+      const removeHandler = realtimeService.onError(() => {
+        onRealtimeError();
+      });
+      
+      return () => {
+        removeHandler();
+      };
+    }
+  }, [onRealtimeError]);
 
   // Detectar possíveis problemas com os dados
   useEffect(() => {

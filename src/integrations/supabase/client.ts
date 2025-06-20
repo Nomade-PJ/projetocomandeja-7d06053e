@@ -17,24 +17,29 @@ const supabaseOptions = {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
   },
   realtime: {
     params: {
-      eventsPerSecond: 1, // Limite de eventos por segundo
+      eventsPerSecond: 5, // Aumentado para permitir mais eventos por segundo
     },
     heartbeat: {
-      interval: 15000, // 15 segundos entre cada heartbeat
-      maxRetries: 3,   // Número de tentativas de reconexão
+      interval: 8000, // Reduzido para 8 segundos para detectar desconexões mais rapidamente
+      maxRetries: 10,   // Aumentado para mais tentativas de reconexão
     },
     reconnect: {
       delay: 1000,    // Espere 1 segundo para tentar reconectar
-      maxRetries: 3,   // Máximo de 3 tentativas
-      timed: false,    // Não escalone o tempo de espera
+      maxRetries: 10,   // Aumentado para mais tentativas de reconexão
+      timed: true,    // Escalonar o tempo de espera entre tentativas
     },
   },
   global: {
     fetch: fetch.bind(globalThis), // Usar o fetch global para evitar problemas em alguns browsers
+    headers: {
+      'X-Client-Info': 'comandeja-web',
+    },
   },
+  persistSession: true, // Persistir a sessão no localStorage
 };
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, supabaseOptions);

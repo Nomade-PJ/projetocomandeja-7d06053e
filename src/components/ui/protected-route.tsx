@@ -25,18 +25,18 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
       // Se não houver usuário, não está autorizado
       if (!user) {
+        console.log("Usuário não autenticado, redirecionando para login");
         setIsAuthorized(false);
         setIsChecking(false);
         return;
       }
 
-      // Verificar se estamos acessando diretamente a página de perfil
-      const searchParams = new URLSearchParams(location.search);
-      const isDirect = searchParams.get('direct') === 'true';
+      // Verificar se estamos acessando a página de perfil
       const isProfilePage = location.pathname === '/perfil';
 
-      // Se for acesso direto à página de perfil, permitir acesso
-      if (isProfilePage && isDirect) {
+      // Se for página de perfil, sempre permitir acesso para usuários autenticados
+      if (isProfilePage) {
+        console.log("Acesso à página de perfil autorizado para usuário autenticado");
         setIsAuthorized(true);
         setIsChecking(false);
         return;
@@ -44,6 +44,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
       try {
         // Verificar o papel do usuário
+        console.log("Verificando papel do usuário:", user.id);
+        let profileData = null;
+        
         const { data, error } = await supabase
           .from('profiles')
           .select('role')
@@ -52,13 +55,49 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
         if (error) {
           console.error('Erro ao verificar perfil:', error);
+          
+          // Se o erro for que não existe registro na tabela profiles
+          if (error.code === 'PGRST116') {
+            console.log('Perfil não encontrado, criando um novo...');
+            
+            // Criar um novo perfil para o usuário
+            const { data: newProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: user.id,
+                  full_name: user.user_metadata?.name || '',
+                  email: user.email,
+                  role: user.user_metadata?.role || 'customer',
+                  updated_at: new Date().toISOString(),
+                }
+              ])
+              .select('role')
+              .single();
+              
+            if (createError) {
+              console.error('Erro ao criar novo perfil:', createError);
           setIsAuthorized(false);
           setIsChecking(false);
           return;
+            }
+            
+            console.log('Novo perfil criado com sucesso:', newProfile);
+            
+            // Use o papel do novo perfil
+            profileData = newProfile;
+          } else {
+            setIsAuthorized(false);
+            setIsChecking(false);
+            return;
+          }
+        } else {
+          profileData = data;
         }
 
         // Determinar se o usuário tem acesso com base no papel
-        const userRole = data?.role;
+        const userRole = profileData?.role;
+        console.log("Papel do usuário:", userRole);
 
         // Verificar se está tentando acessar o dashboard
         const isDashboardRoute = location.pathname.startsWith('/dashboard');
@@ -112,7 +151,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     };
 
     checkAuthorization();
-  }, [user, isLoading, location.pathname, location.search, requiresAdmin]);
+  }, [user, isLoading, location.pathname, requiresAdmin]);
 
   // Mostrar um estado de carregamento enquanto verificamos a autenticação
   if (isChecking || isLoading) {

@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import DirectImageUpload from "@/components/dashboard/DirectImageUpload";
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Product {
   id: string;

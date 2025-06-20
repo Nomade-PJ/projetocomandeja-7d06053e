@@ -19,7 +19,7 @@ import { useProducts } from "@/hooks/useProducts";
 import EditProductModal from "@/components/dashboard/modals/EditProductModal";
 import DeleteProductDialog from "../dashboard/modals/DeleteProductDialog";
 import { AlertCircle, MoreVertical, Pencil, ShieldAlert, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 const ProductsList = () => {
   const { products, isLoading, error: productsError } = useProducts();

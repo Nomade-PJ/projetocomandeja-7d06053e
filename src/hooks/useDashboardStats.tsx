@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { realtimeService } from '@/integrations/supabase/realtimeService';
 import { useRestaurant } from '@/hooks/useRestaurant';
@@ -66,8 +66,32 @@ export function useDashboardStats() {
     recentOrders: [],
   });
 
+  // Função para buscar pedidos recentes
+  const fetchRecentOrders = useCallback(async () => {
+    if (!restaurant) return;
+    
+    try {
+      // Buscar os 10 pedidos mais recentes
+      const { data: recentOrdersData, error: recentOrdersError } = await supabase
+        .from('orders')
+        .select('id, order_number, customer_name, created_at, status, total')
+        .eq('restaurant_id', restaurant.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (!recentOrdersError && recentOrdersData) {
+        setStats(prevStats => ({
+          ...prevStats,
+          recentOrders: recentOrdersData
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar pedidos recentes:', error);
+    }
+  }, [restaurant]);
+
   // Definir fetchDashboardStats fora do useEffect para poder usar em diferentes effects
-  const fetchDashboardStats = async () => {
+  const fetchDashboardStats = useCallback(async () => {
     if (!restaurant) return;
     
     try {
@@ -278,34 +302,18 @@ export function useDashboardStats() {
         : [];
       
       // 7. Obter pedidos recentes
-      const { data: recentOrdersData, error: recentOrdersError } = await supabase
-        .from('orders')
-        .select('id, order_number, customer_name, created_at, status, total')
-        .eq('restaurant_id', restaurant.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-      
-      const recentOrders = !recentOrdersError && recentOrdersData 
-        ? recentOrdersData.map(order => ({
-            id: order.id,
-            order_number: order.order_number,
-            customer_name: order.customer_name,
-            created_at: order.created_at,
-            status: order.status,
-            total: order.total,
-          }))
-        : [];
+      await fetchRecentOrders();
       
       // Atualizar o estado com todos os dados
       setStats({
         todaySales: {
           value: formatCurrency(todaySales),
-          change: `${salesChange.toFixed(0)}%`,
+          change: `${Math.abs(salesChange).toFixed(1)}%`,
           changeType: salesChangeType,
         },
         todayOrders: {
-          value: todayOrders.toString(),
-          change: `${ordersChange.toFixed(0)}%`,
+          value: String(todayOrders),
+          change: `${Math.abs(ordersChange).toFixed(1)}%`,
           changeType: ordersChangeType,
         },
         newCustomers: {
@@ -322,50 +330,47 @@ export function useDashboardStats() {
           data: monthlySales,
         },
         topProducts,
-        recentOrders,
+        recentOrders: stats.recentOrders,
       });
     } catch (error) {
       console.error('Erro ao buscar estatísticas do dashboard:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Effect para buscar dados iniciais
+  }, [restaurant, fetchRecentOrders]);
+  
+  // Buscar estatísticas quando o restaurante mudar
   useEffect(() => {
     if (restaurant) {
       fetchDashboardStats();
     }
-  }, [restaurant]);
+  }, [restaurant, fetchDashboardStats]);
 
-  // Effect separado para o intervalo de atualização
+  // Configurar assinatura em tempo real para pedidos
   useEffect(() => {
     if (!restaurant) return;
     
-    // Configurar intervalo para atualizar os dados a cada 5 minutos
-    const interval = setInterval(() => {
-      fetchDashboardStats();
-    }, 5 * 60 * 1000);
+    // Usar o serviço Realtime para evitar múltiplas inscrições no mesmo canal
+    const unsubscribe = realtimeService.subscribeToTable(
+      'orders',
+      restaurant.id,
+      () => {
+        console.log('Atualização em tempo real detectada na tabela orders');
+        // Atualizar pedidos recentes e estatísticas
+        fetchRecentOrders();
+        fetchDashboardStats();
+      }
+    );
     
+    // Limpar assinatura quando o componente for desmontado
     return () => {
-      clearInterval(interval);
+      unsubscribe();
     };
-  }, [restaurant]);
+  }, [restaurant, fetchRecentOrders, fetchDashboardStats]);
 
-  // Effect separado para inscrições em tempo real
-  useEffect(() => {
-    if (!restaurant) return;
-    
-    // Usar o serviço centralizado de Realtime
-    const unsubscribeOrders = realtimeService.subscribeToTable('orders', restaurant.id, fetchDashboardStats);
-    const unsubscribeStats = realtimeService.subscribeToTable('dashboard_statistics', restaurant.id, fetchDashboardStats);
-    
-    // Limpar inscrições quando o componente for desmontado
-    return () => {
-      unsubscribeOrders();
-      unsubscribeStats();
-    };
-  }, [restaurant]);
-  
-  return { stats, loading };
+  return {
+    stats,
+    loading,
+    refreshStats: fetchDashboardStats
+  };
 } 

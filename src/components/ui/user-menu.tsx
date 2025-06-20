@@ -40,7 +40,7 @@ export function UserMenu({ className }: UserMenuProps) {
   };
 
   const handleProfileClick = () => {
-    window.open('/perfil?direct=true', '_blank');
+    navigate('/perfil');
   };
 
   return (
@@ -55,7 +55,7 @@ export function UserMenu({ className }: UserMenuProps) {
           </Avatar>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent className="w-56 mr-2">
         <DropdownMenuLabel>
           <div className="flex flex-col">
             <span className="font-medium">{user.user_metadata?.name || 'Usuário'}</span>

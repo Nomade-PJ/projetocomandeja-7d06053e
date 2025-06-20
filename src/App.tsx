@@ -12,6 +12,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import DashboardOrders from "./pages/DashboardOrders";
 import DashboardProducts from "./pages/DashboardProducts";
+import DashboardCategories from "./pages/DashboardCategories";
 import DashboardCustomers from "./pages/DashboardCustomers";
 import DashboardReports from "./pages/DashboardReports";
 import DashboardReviews from "./pages/DashboardReviews";
@@ -73,6 +74,11 @@ const App = () => {
                 <Route path="/dashboard/products" element={
                   <ProtectedRoute>
                     <DashboardProducts />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/categories" element={
+                  <ProtectedRoute>
+                    <DashboardCategories />
                   </ProtectedRoute>
                 } />
                 <Route path="/dashboard/customers" element={
